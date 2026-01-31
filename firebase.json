@@ -1,0 +1,38 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "lamhti",
+          "appId": "1:901404817308:android:cb4102df570574eb673a59",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "lamhti",
+          "configurations": {
+            "android": "1:901404817308:android:cb4102df570574eb673a59",
+            "ios": "1:901404817308:ios:22efaedd62368994673a59"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "adultcontent",
+      "codebase": "adultcontent",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ]
+}
