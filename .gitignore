@@ -43,3 +43,31 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ========== ADD THESE ==========
+
+# Android build artifacts
+android/app/build/
+android/build/
+*.apk
+*.aab
+*.ap_
+
+# Android error/crash logs
+errors-*.log
+
+# Firebase/Google services config (if contains real keys)
+# android/app/google-services.json  # Uncomment if it has real API keys
+
+# Flutter specific
+*.iml
+*.lock
+
+# iOS
+ios/Flutter/Flutter.framework
+ios/Flutter/App.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Pods/
+ios/.symlinks/
+/DerivedData/
