@@ -5,6 +5,7 @@ import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:lamhti_app/Services/Firebase%20Auth/AppleAuthService.dart';
+import 'package:lamhti_app/Services/Firebase%20Auth/EmailAuthService.dart';
 import 'package:lamhti_app/Services/Firebase%20Auth/GoogleAuthService.dart';
 import 'package:lamhti_app/Services/Firebase%20Storage/User%20Details%20Storage/UserDetailsStorageService.dart';
 import 'package:lamhti_app/UI/Main%20Screens/MainNavigationBar.dart';
@@ -22,10 +23,26 @@ class _SignInScreenState extends State<SignInScreen> {
 
   AppleAuthService appleAuthService = AppleAuthService();
 
+  EmailAuthService emailAuthService = EmailAuthService();
+
   UserDetailsStorageService userDetailsStorageService =
       UserDetailsStorageService();
 
   bool isLoading = false;
+
+  // Email authentication controllers
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  bool _isSignUpMode = false; // Toggle between sign-in and sign-up
+  bool _obscurePassword = true; // Toggle password visibility
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,14 +118,229 @@ class _SignInScreenState extends State<SignInScreen> {
                   stopPauseOnTap: true,
                 ),
 
-                SizedBox(height: 20.h),
+                SizedBox(height: 15.h),
+
+                // Email Login Form
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 30.w),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        // Email TextField
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          style: TextStyle(fontSize: 14.sp),
+                          decoration: InputDecoration(
+                            labelText: 'Email',
+                            hintText: 'Enter your email',
+                            prefixIcon: Icon(Icons.email_outlined, size: 20.sp),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[100],
+                            contentPadding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 12.w),
+                            isDense: true,
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your email';
+                            }
+                            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                                .hasMatch(value)) {
+                              return 'Please enter a valid email';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        SizedBox(height: 12.h),
+
+                        // Password TextField
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          style: TextStyle(fontSize: 14.sp),
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            hintText: 'Enter your password',
+                            prefixIcon: Icon(Icons.lock_outline, size: 20.sp),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                size: 20.sp,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[100],
+                            contentPadding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 12.w),
+                            isDense: true,
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your password';
+                            }
+                            if (_isSignUpMode && value.length < 6) {
+                              return 'Password must be at least 6 characters';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        SizedBox(height: 5.h),
+
+                        // Forgot Password Link
+                        if (!_isSignUpMode)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () async {
+                                if (_emailController.text.trim().isEmpty) {
+                                  Toast.toastMessage(
+                                    "Please enter your email first",
+                                    Colors.orange,
+                                  );
+                                  return;
+                                }
+                                await emailAuthService.sendPasswordResetEmail(
+                                  _emailController.text.trim(),
+                                );
+                              },
+                              child: Text(
+                                'Forgot Password?',
+                                style: TextStyle(
+                                  color: Colors.blue,
+                                  fontSize: 14.sp,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        SizedBox(height: 5.h),
+
+                        // Sign In / Sign Up Button
+                        InkWell(
+                          onTap: () async {
+                            if (_formKey.currentState!.validate()) {
+                              setState(() {
+                                isLoading = true;
+                              });
+
+                              try {
+                                final user = _isSignUpMode
+                                    ? await emailAuthService.signUpWithEmail(
+                                        _emailController.text.trim(),
+                                        _passwordController.text,
+                                      )
+                                    : await emailAuthService.signInWithEmail(
+                                        _emailController.text.trim(),
+                                        _passwordController.text,
+                                      );
+
+                                if (user != null) {
+                                  await userDetailsStorageService
+                                      .setupUserDetailsIfNeeded();
+
+                                  Toast.toastMessage(
+                                    _isSignUpMode
+                                        ? "Account Created Successfully"
+                                        : "Signed In Successfully",
+                                    Colors.black,
+                                  );
+
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => MainNavigationBar(),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                debugPrint("Email auth error: $e");
+                              } finally {
+                                setState(() {
+                                  isLoading = false;
+                                });
+                              }
+                            }
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            height: 45.h,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12.r),
+                              color: Colors.black,
+                            ),
+                            child: Center(
+                              child: Text(
+                                _isSignUpMode ? 'Sign Up' : 'Sign In',
+                                style: TextStyle(
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        SizedBox(height: 10.h),
+
+                        // Toggle between Sign In and Sign Up
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _isSignUpMode
+                                  ? 'Already have an account?'
+                                  : "Don't have an account?",
+                              style: TextStyle(
+                                fontSize: 14.sp,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _isSignUpMode = !_isSignUpMode;
+                                });
+                              },
+                              child: Text(
+                                _isSignUpMode ? 'Sign In' : 'Sign Up',
+                                style: TextStyle(
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: 12.h),
 
                 (Platform.isIOS)
                     ? SizedBox(
                       height: MediaQuery.of(context).size.height * 0.02,
                     )
                     : SizedBox(
-                      height: MediaQuery.of(context).size.height * 0.08,
+                      height: MediaQuery.of(context).size.height * 0.02,
                     ),
 
                 Row(
@@ -125,8 +357,12 @@ class _SignInScreenState extends State<SignInScreen> {
                       ),
                     ),
                     Text(
-                      "Lets get started",
-                      style: TextStyle(color: Colors.black, fontSize: 16),
+                      "OR",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Expanded(
                       child: Divider(
