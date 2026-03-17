@@ -1,0 +1,208 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:http/http.dart' as http;
+import 'package:lamhti_app/API%20Models/PaymentIntentAPIModel.dart';
+import 'package:lamhti_app/Services/Payment%20Service/InAppPurchaseService.dart';
+import 'package:lamhti_app/Utils/Toast.dart';
+
+enum PaymentMethod { stripe, inAppPurchase }
+
+class PlatformPaymentService {
+  static final PlatformPaymentService _instance = 
+      PlatformPaymentService._internal();
+  
+  late InAppPurchaseService _iapService;
+  
+  // Configuration
+  final bool _forceIAPOnAndroid = false; // Set to true to use IAP on Android
+
+  factory PlatformPaymentService() {
+    return _instance;
+  }
+
+  PlatformPaymentService._internal() {
+    _iapService = InAppPurchaseService();
+  }
+
+  Future<void> initialize() async {
+    if (_shouldUseIAP()) {
+      await _iapService.initialize();
+      debugPrint('IAP initialized for iOS');
+    } else {
+      debugPrint('Using Stripe for payments');
+    }
+  }
+
+  /// Determines if IAP should be used based on platform
+  bool _shouldUseIAP() {
+    if (Platform.isIOS) {
+      return true; // Always use IAP on iOS (App Store requirement)
+    } else if (Platform.isAndroid && _forceIAPOnAndroid) {
+      return true; // Use IAP on Android if configured
+    }
+    return false;
+  }
+
+  /// Get the active payment method for current platform
+  PaymentMethod getPaymentMethod() {
+    return _shouldUseIAP() ? PaymentMethod.inAppPurchase : PaymentMethod.stripe;
+  }
+
+  /// Unified payment flow - handles platform-specific payment
+  Future<bool> processPayment({
+    required int amountInCents,
+    required String imageId,
+    required String accountId,
+    required String productId, // For IAP: use InAppPurchaseService.imageDownloadProductId
+  }) async {
+    try {
+      if (_shouldUseIAP()) {
+        return await _processIAPPayment(productId: productId);
+      } else {
+        return await _processStripePayment(
+          amountInCents: amountInCents,
+          accountId: accountId,
+        );
+      }
+    } catch (e) {
+      debugPrint('Payment processing error: $e');
+      Toast.toastMessage('Payment error: $e', Colors.red);
+      return false;
+    }
+  }
+
+  /// Process payment via In-App Purchase (iOS/Android)
+  Future<bool> _processIAPPayment({
+    required String productId,
+  }) async {
+    try {
+      debugPrint('Processing IAP payment for product: $productId');
+      
+      // Initiate purchase
+      final purchaseInitiated = 
+          await _iapService.purchaseProduct(productId);
+      
+      if (!purchaseInitiated) {
+        Toast.toastMessage('Failed to initiate purchase', Colors.red);
+        return false;
+      }
+
+      // Purchase will be completed via stream listener in IAP service
+      // Success will be confirmed by stream callback
+      Toast.toastMessage('Purchase initiated', Colors.blue);
+      return true;
+    } catch (e) {
+      debugPrint('IAP payment error: $e');
+      Toast.toastMessage('Purchase failed: $e', Colors.red);
+      return false;
+    }
+  }
+
+  /// Process payment via Stripe (Android/Web)
+  Future<bool> _processStripePayment({
+    required int amountInCents,
+    required String accountId,
+  }) async {
+    try {
+      debugPrint('Processing Stripe payment');
+      
+      // Create payment intent
+      final paymentIntent = 
+          await _createStripePaymentIntent(amountInCents, accountId);
+      
+      if (paymentIntent == null) {
+        Toast.toastMessage('Unable to create payment', Colors.red);
+        return false;
+      }
+
+      // Open payment sheet
+      return await _openStripePaymentSheet(paymentIntent.clientSecret!);
+    } catch (e) {
+      debugPrint('Stripe payment error: $e');
+      Toast.toastMessage('Payment error: $e', Colors.red);
+      return false;
+    }
+  }
+
+  /// Create Stripe payment intent
+  Future<PaymentIntentAPIModel?> _createStripePaymentIntent(
+    int amountInCents,
+    String accountId,
+  ) async {
+    try {
+      final url = Uri.parse(
+        "https://lamhti-backend-kn795pm9z-lamhtis-projects.vercel.app/api/createPaymentIntent",
+      );
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({"amount": amountInCents, "accountId": accountId}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return PaymentIntentAPIModel.fromJson(data);
+      } else {
+        debugPrint('Failed to create payment intent: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Error creating payment intent: $e');
+      Toast.toastMessage('Unable to create payment', Colors.red);
+      return null;
+    }
+  }
+
+  /// Open Stripe payment sheet
+  Future<bool> _openStripePaymentSheet(String clientSecret) async {
+    try {
+      await Stripe.instance.initPaymentSheet(
+        paymentSheetParameters: SetupPaymentSheetParameters(
+          paymentIntentClientSecret: clientSecret,
+          merchantDisplayName: "Lamhti",
+          style: ThemeMode.light,
+          customFlow: false,
+        ),
+      );
+
+      await Stripe.instance.presentPaymentSheet();
+      
+      Toast.toastMessage("Payment Successful!", Colors.green);
+      return true;
+    } on StripeException catch (e) {
+      debugPrint("Payment Cancelled: ${e.error.localizedMessage}");
+      Toast.toastMessage("Payment Cancelled!", Colors.red);
+      return false;
+    } catch (e) {
+      debugPrint("Stripe Error: $e");
+      Toast.toastMessage("Payment failed: $e", Colors.red);
+      return false;
+    }
+  }
+
+  /// Check if user has IAP product purchased
+  bool isPurchased(String productId) {
+    if (_shouldUseIAP()) {
+      return _iapService.isPurchased(productId);
+    }
+    return false;
+  }
+
+  /// Get product price (for display)
+  String? getProductPrice(String productId) {
+    if (_shouldUseIAP()) {
+      return _iapService.getProductPrice(productId);
+    }
+    return null;
+  }
+
+  Future<void> dispose() async {
+    if (_shouldUseIAP()) {
+      await _iapService.dispose();
+    }
+  }
+}

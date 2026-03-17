@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:lamhti_app/Services/email_service.dart';
+import 'package:lamhti_app/Services/Payment%20Service/PlatformPaymentService.dart';
 import 'package:lamhti_app/Theme/AppTheme.dart';
 import 'package:lamhti_app/UI/Initial%20Screens/SplashScreen.dart';
 import 'package:screen_protector/screen_protector.dart';
@@ -27,7 +28,10 @@ void main() async {
       "pk_live_51S2aUT1rkzNjSyjFUtkJf301c9pVVfJT2TjKMUA0QDcpZ6gdrKFmE2vG3PJqEl3rJbv7DZKaczyCpCdmgghQonPt009Wqk4j9h";
   // Stripe.merchantIdentifier = 'merchant.com.lamhti'; // for Apple Pay
   // await Stripe.instance.applySettings();
-  // await ScreenProtector.preventScreenshotOn();
+
+  // Initialize Platform Payment Service (handles IAP for iOS, Stripe for Android/Web)
+  final platformPaymentService = PlatformPaymentService();
+  await platformPaymentService.initialize();
 
   runApp(
     ScreenUtilInit(

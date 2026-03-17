@@ -10,6 +10,8 @@ import 'package:lamhti_app/Services/Firebase%20Storage/ImageBuyingService.dart';
 import 'package:lamhti_app/Services/Firebase%20Storage/ImageUploadService.dart';
 import 'package:lamhti_app/Services/Firebase%20Storage/User%20Details%20Storage/UserDetailsStorageService.dart';
 import 'package:lamhti_app/Services/Payment%20Service/BuyerPayoutService.dart';
+import 'package:lamhti_app/Services/Payment%20Service/InAppPurchaseService.dart';
+import 'package:lamhti_app/Services/Payment%20Service/PlatformPaymentService.dart';
 import 'package:lamhti_app/Services/email_service.dart';
 import 'package:lamhti_app/Utils/ReuseableBottomButton.dart';
 import 'package:lamhti_app/Utils/Toast.dart';
@@ -51,6 +53,9 @@ class DetailedImageDisplayScreen extends StatefulWidget {
 class _DetailedImageDisplayScreenState
     extends State<DetailedImageDisplayScreen> {
   BuyerPayoutService buyerPayoutService = BuyerPayoutService();
+  
+  // Platform-aware payment service (handles IAP for iOS, Stripe for Android/Web)
+  final PlatformPaymentService _platformPaymentService = PlatformPaymentService();
 
   ImageBuyingService imageBuyingService = ImageBuyingService();
 
@@ -68,24 +73,22 @@ class _DetailedImageDisplayScreenState
 
       String? _accountId = await _imageUploadService.getAccountIdFromUpload(widget.imageId!);
 
-
-      final apiResponse = await buyerPayoutService.createPaymentIntent(
-        priceInCents,
-        _accountId ?? "dummyId",
-      );
-
       debugPrint("SELLER Account ID: $_accountId");
+
+      // Use platform-aware payment service
+      final paymentSuccessful = await _platformPaymentService.processPayment(
+        amountInCents: priceInCents,
+        imageId: widget.imageId ?? "unknown",
+        accountId: _accountId ?? "dummyId",
+        productId: InAppPurchaseService.imageDownloadProductId,
+      );
 
       // Hide loader BEFORE showing payment sheet
       setState(() {
         isLoadingSheet = false;
       });
 
-      debugPrint("CLIENT SECRET: "+apiResponse!.clientSecret!);
-
-      return await buyerPayoutService.openPaymentSheet(
-        apiResponse!.clientSecret!,
-      );
+      return paymentSuccessful;
 
       // If no exception, update image status
       // await imageBuyingService.updateImageStatusAndDetails(
