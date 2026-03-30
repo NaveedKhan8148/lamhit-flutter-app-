@@ -12,6 +12,8 @@ class InAppPurchaseService {
   final Map<String, ProductDetails> _products = {};
   List<PurchaseDetails> _purchases = [];
   bool _isAvailable = false;
+  final Map<String, Completer<PurchaseDetails>> _pendingPurchaseCompleters = {};
+  PurchaseDetails? _lastSuccessfulPurchase;
 
   factory InAppPurchaseService() {
     return _instance;
@@ -75,16 +77,20 @@ class InAppPurchaseService {
     }
   }
 
-  Future<bool> purchaseProduct(String productId) async {
+  /// Initiates a purchase and resolves once StoreKit/Play reports success or error.
+  Future<PurchaseDetails?> purchaseAndWait(
+    String productId, {
+    Duration timeout = const Duration(minutes: 2),
+  }) async {
     try {
       if (!_isAvailable) {
         Toast.toastMessage('In-App Purchase not available', Colors.red);
-        return false;
+        return null;
       }
 
       if (!_products.containsKey(productId)) {
         Toast.toastMessage('Product not found', Colors.red);
-        return false;
+        return null;
       }
 
       final ProductDetails product = _products[productId]!;
@@ -93,12 +99,35 @@ class InAppPurchaseService {
         productDetails: product,
       );
 
-      await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
-      return true; // Purchase initiated, will be confirmed in stream
+      // Create a completer BEFORE initiating so we can't miss the callback.
+      _pendingPurchaseCompleters[productId]?.completeError(
+        StateError('A new purchase was started while another was pending.'),
+      );
+      final completer = Completer<PurchaseDetails>();
+      _pendingPurchaseCompleters[productId] = completer;
+
+      // For image downloads we treat it as a consumable (one purchase per image).
+      if (productId == imageDownloadProductId) {
+        await _inAppPurchase.buyConsumable(
+          purchaseParam: purchaseParam,
+          autoConsume: true,
+        );
+      } else {
+        // Non-consumable/subscription
+        await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+      }
+
+      final details = await completer.future.timeout(timeout);
+      return details;
     } catch (e) {
       debugPrint('Error purchasing product: $e');
       Toast.toastMessage('Purchase failed: $e', Colors.red);
-      return false;
+      // If initiation failed, unblock any waiters.
+      final c = _pendingPurchaseCompleters.remove(productId);
+      if (c != null && !c.isCompleted) {
+        c.completeError(e);
+      }
+      return null;
     }
   }
 
@@ -116,9 +145,18 @@ class InAppPurchaseService {
       } else if (purchaseDetails.status == PurchaseStatus.error) {
         debugPrint('Purchase error: ${purchaseDetails.error}');
         Toast.toastMessage('Purchase failed: ${purchaseDetails.error}', Colors.red);
+        final c = _pendingPurchaseCompleters.remove(purchaseDetails.productID);
+        if (c != null && !c.isCompleted) {
+          c.completeError(purchaseDetails.error ?? StateError('Purchase error'));
+        }
       } else if (purchaseDetails.status == PurchaseStatus.restored) {
         debugPrint('Purchase restored: ${purchaseDetails.productID}');
         _purchases.add(purchaseDetails);
+        // Restores can also satisfy a waiting purchase flow in rare cases.
+        final c = _pendingPurchaseCompleters.remove(purchaseDetails.productID);
+        if (c != null && !c.isCompleted) {
+          c.complete(purchaseDetails);
+        }
       } else if (purchaseDetails.status == PurchaseStatus.purchased) {
         debugPrint('Purchase completed: ${purchaseDetails.productID}');
         
@@ -126,7 +164,13 @@ class InAppPurchaseService {
         await _verifyPurchase(purchaseDetails);
         
         _purchases.add(purchaseDetails);
+        _lastSuccessfulPurchase = purchaseDetails;
         Toast.toastMessage('Purchase successful!', Colors.green);
+
+        final c = _pendingPurchaseCompleters.remove(purchaseDetails.productID);
+        if (c != null && !c.isCompleted) {
+          c.complete(purchaseDetails);
+        }
       }
 
       // Complete purchase for consumable items (if needed)
@@ -135,6 +179,10 @@ class InAppPurchaseService {
       }
     } catch (e) {
       debugPrint('Error updating purchase status: $e');
+      final c = _pendingPurchaseCompleters.remove(purchaseDetails.productID);
+      if (c != null && !c.isCompleted) {
+        c.completeError(e);
+      }
     }
   }
 
@@ -151,6 +199,9 @@ class InAppPurchaseService {
   bool isPurchased(String productId) {
     return _purchases.any((p) => p.productID == productId && p.status == PurchaseStatus.purchased);
   }
+
+  /// The last successful StoreKit/Play purchase reported in this session.
+  PurchaseDetails? getLastSuccessfulPurchase() => _lastSuccessfulPurchase;
 
   ProductDetails? getProduct(String productId) {
     return _products[productId];

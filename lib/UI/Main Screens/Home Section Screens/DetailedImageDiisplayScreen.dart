@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:developer';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -109,6 +110,11 @@ class _DetailedImageDisplayScreenState
   @override
   bool isTapValue = false;
   Widget build(BuildContext context) {
+    final iapPrice = _platformPaymentService.getProductPrice(
+      InAppPurchaseService.imageDownloadProductId,
+    );
+    final isIos = Platform.isIOS;
+
     return isLoadingSheet
         ? Scaffold(body: Center(child: CircularProgressIndicator()))
         : WillPopScope(
@@ -315,7 +321,9 @@ class _DetailedImageDisplayScreenState
                                       Visibility(
                                         visible: !widget.isOwner,
                                         child: Text(
-                                          "Price: \$${widget.imagePrice.toStringAsFixed(2)}",
+                                          isIos
+                                              ? "Price: ${iapPrice ?? ''}"
+                                              : "Price: \$${widget.imagePrice.toStringAsFixed(2)}",
                                           style: TextStyle(
                                             fontSize: 18.sp,
                                             fontWeight: FontWeight.w500,
@@ -336,7 +344,9 @@ class _DetailedImageDisplayScreenState
 
                                   child: ReuseableBottomButton(
                                     buttonText:
-                                        "Buy Now for \$${widget.imagePrice}",
+                                        isIos
+                                            ? "Buy Now ${iapPrice != null ? 'for $iapPrice' : ''}"
+                                            : "Buy Now for \$${widget.imagePrice}",
                                     onTap: () async {
                                       try {
                                         final priceInCents =
@@ -365,10 +375,16 @@ class _DetailedImageDisplayScreenState
                                         }
 
                                         // 2) Mark as sold
-                                        await ImageUploadService()
-                                            .markItemSoldMinimal(
-                                              documentId: widget.imageId!,
-                                            );
+                                        final txId =
+                                            _platformPaymentService.getLastIapTransactionId();
+                                        await ImageUploadService().markItemSoldAfterPayment(
+                                          documentId: widget.imageId!,
+                                          paymentMethod: isIos ? 'iap' : 'stripe',
+                                          transactionId: isIos ? txId : null,
+                                          productId: isIos
+                                              ? InAppPurchaseService.imageDownloadProductId
+                                              : null,
+                                        );
                                         log(
                                           '✅ Marked item sold: ${widget.imageId}',
                                         );

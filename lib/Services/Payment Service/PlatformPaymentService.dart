@@ -15,6 +15,7 @@ class PlatformPaymentService {
       PlatformPaymentService._internal();
   
   late InAppPurchaseService _iapService;
+  String? _lastIapTransactionId;
   
   // Configuration
   final bool _forceIAPOnAndroid = false; // Set to true to use IAP on Android
@@ -81,18 +82,17 @@ class PlatformPaymentService {
     try {
       debugPrint('Processing IAP payment for product: $productId');
       
-      // Initiate purchase
-      final purchaseInitiated = 
-          await _iapService.purchaseProduct(productId);
-      
-      if (!purchaseInitiated) {
-        Toast.toastMessage('Failed to initiate purchase', Colors.red);
+      final purchase = await _iapService.purchaseAndWait(productId);
+      if (purchase == null) {
+        Toast.toastMessage('Purchase not completed', Colors.red);
         return false;
       }
 
-      // Purchase will be completed via stream listener in IAP service
-      // Success will be confirmed by stream callback
-      Toast.toastMessage('Purchase initiated', Colors.blue);
+      _lastIapTransactionId = purchase.purchaseID ??
+          (purchase.verificationData.serverVerificationData.isNotEmpty
+              ? purchase.verificationData.serverVerificationData
+              : purchase.verificationData.localVerificationData);
+
       return true;
     } catch (e) {
       debugPrint('IAP payment error: $e');
@@ -199,6 +199,9 @@ class PlatformPaymentService {
     }
     return null;
   }
+
+  /// Best-effort transaction id for the last successful IAP (this session).
+  String? getLastIapTransactionId() => _lastIapTransactionId;
 
   Future<void> dispose() async {
     if (_shouldUseIAP()) {

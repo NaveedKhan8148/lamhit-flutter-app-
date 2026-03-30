@@ -93,6 +93,37 @@ class ImageUploadService {
     });
   }
 
+  /// Marks an image as sold/unlocked to the current user after a successful payment.
+  Future<void> markItemSoldAfterPayment({
+    required String documentId,
+    required String paymentMethod, // e.g. "iap" | "stripe"
+    String? transactionId,
+    String? productId,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw FirebaseException(
+        plugin: 'firebase_auth',
+        code: 'not-signed-in',
+        message: 'Sign in required.',
+      );
+    }
+
+    final ref =
+        FirebaseFirestore.instance.collection('uploads').doc(documentId);
+
+    await ref.update({
+      'status': 'sold',
+      'isSold': true,
+      'lastSoldTime': DateTime.now().toIso8601String(),
+      'purchasedBy': user.uid,
+      'purchasedAt': FieldValue.serverTimestamp(),
+      'purchasePaymentMethod': paymentMethod,
+      'purchaseTransactionId': transactionId ?? '',
+      'purchaseProductId': productId ?? '',
+    });
+  }
+
   Future<int> purgeMyExpiredUploads({
     Duration unsoldGrace = const Duration(minutes: 5),
     Duration soldGrace = const Duration(minutes: 10),
