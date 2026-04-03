@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:http/http.dart' as http;
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:lamhti_app/API%20Models/PaymentIntentAPIModel.dart';
 import 'package:lamhti_app/Services/Payment%20Service/InAppPurchaseService.dart';
 import 'package:lamhti_app/Utils/Toast.dart';
@@ -52,7 +53,37 @@ class PlatformPaymentService {
     return _shouldUseIAP() ? PaymentMethod.inAppPurchase : PaymentMethod.stripe;
   }
 
-  /// Unified payment flow - handles platform-specific payment
+  /// Validate that purchase is allowed for this platform (iOS = IAP ONLY)
+  bool isPaymentAllowed() {
+    if (Platform.isIOS) {
+      // iOS MUST use IAP exclusively for paid content
+      if (!_shouldUseIAP()) {
+        Toast.toastMessage(
+          'iOS App Store requires In-App Purchase. Please try again.',
+          Colors.red,
+        );
+        debugPrint('⚠️ iOS attempted to use non-IAP payment method!');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Get the last IAP transaction ID (for payment method verification)
+  String? getLastIapTransactionId() {
+    if (_shouldUseIAP()) {
+      return _iapService.getLastTransactionId();
+    }
+    return null;
+  }
+
+  /// Get all IAP purchases for verification (iOS compliance)
+  List<PurchaseDetails> getAllVerifiedPurchases() {
+    if (_shouldUseIAP()) {
+      return _iapService.getAllPurchaseDetails();
+    }
+    return [];
+  }
   Future<bool> processPayment({
     required int amountInCents,
     required String imageId,
