@@ -374,9 +374,9 @@ void _showOnboardingDialog(BuildContext context, String link) {
     barrierDismissible: false,
     builder: (context) {
       return AlertDialog(
-        title: const Text("Complete Onboarding"),
+        title: const Text("Complete Seller Payout Onboarding"),
         content: const Text(
-          "You must register your account before uploading images, to get paid.",
+          "This step is only for sellers to receive payouts. Buyers purchase digital content using Apple In-App Purchase on iOS.",
         ),
         actions: [
           TextButton(
@@ -389,7 +389,7 @@ void _showOnboardingDialog(BuildContext context, String link) {
                 ),
               );
             },
-            child: const Text("Register"),
+            child: const Text("Continue"),
           ),
           TextButton(
             onPressed: () {

@@ -10,7 +10,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lamhti_app/Services/Firebase%20Storage/ImageBuyingService.dart';
 import 'package:lamhti_app/Services/Firebase%20Storage/ImageUploadService.dart';
 import 'package:lamhti_app/Services/Firebase%20Storage/User%20Details%20Storage/UserDetailsStorageService.dart';
-import 'package:lamhti_app/Services/Payment%20Service/BuyerPayoutService.dart';
 import 'package:lamhti_app/Services/Payment%20Service/InAppPurchaseService.dart';
 import 'package:lamhti_app/Services/Payment%20Service/PlatformPaymentService.dart';
 import 'package:lamhti_app/Services/email_service.dart';
@@ -53,9 +52,7 @@ class DetailedImageDisplayScreen extends StatefulWidget {
 
 class _DetailedImageDisplayScreenState
     extends State<DetailedImageDisplayScreen> {
-  BuyerPayoutService buyerPayoutService = BuyerPayoutService();
-  
-  // Platform-aware payment service (handles IAP for iOS, Stripe for Android/Web)
+  // Platform-aware payment service (IAP on iOS, alternate flow on Android/Web)
   final PlatformPaymentService _platformPaymentService = PlatformPaymentService();
 
   ImageBuyingService imageBuyingService = ImageBuyingService();
@@ -84,7 +81,7 @@ class _DetailedImageDisplayScreenState
         productId: InAppPurchaseService.imageDownloadProductId,
       );
 
-      // Hide loader BEFORE showing payment sheet
+      // Hide loader before showing the platform purchase UI.
       setState(() {
         isLoadingSheet = false;
       });
@@ -343,11 +340,20 @@ class _DetailedImageDisplayScreenState
                                   width: double.infinity,
 
                                   child: ReuseableBottomButton(
-                                    buttonText:
-                                        isIos
-                                            ? "Buy Now ${iapPrice != null ? 'for $iapPrice' : ''}"
-                                            : "Buy Now for \$${widget.imagePrice}",
+                                    enabled: !isIos || iapPrice != null,
+                                    buttonText: isIos
+                                        ? (iapPrice != null
+                                            ? "Buy Now for $iapPrice"
+                                            : "Loading Apple IAP price...")
+                                        : "Buy Now for \$${widget.imagePrice}",
                                     onTap: () async {
+                                      if (isIos && iapPrice == null) {
+                                        Toast.toastMessage(
+                                          'Apple In-App Purchase is required on iOS, please try again in a moment.',
+                                          Colors.orange,
+                                        );
+                                        return;
+                                      }
                                       try {
                                         final priceInCents =
                                             (widget.imagePrice * 100).round();

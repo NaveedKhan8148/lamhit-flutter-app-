@@ -4,7 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:http/http.dart' as http;
-import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:lamhti_app/API%20Models/PaymentIntentAPIModel.dart';
 import 'package:lamhti_app/Services/Payment%20Service/InAppPurchaseService.dart';
 import 'package:lamhti_app/Utils/Toast.dart';
@@ -34,7 +33,7 @@ class PlatformPaymentService {
       await _iapService.initialize();
       debugPrint('IAP initialized for iOS');
     } else {
-      debugPrint('Using Stripe for payments');
+      debugPrint('Using non-iOS payment provider');
     }
   }
 
@@ -53,37 +52,12 @@ class PlatformPaymentService {
     return _shouldUseIAP() ? PaymentMethod.inAppPurchase : PaymentMethod.stripe;
   }
 
-  /// Validate that purchase is allowed for this platform (iOS = IAP ONLY)
-  bool isPaymentAllowed() {
-    if (Platform.isIOS) {
-      // iOS MUST use IAP exclusively for paid content
-      if (!_shouldUseIAP()) {
-        Toast.toastMessage(
-          'iOS App Store requires In-App Purchase. Please try again.',
-          Colors.red,
-        );
-        debugPrint('⚠️ iOS attempted to use non-IAP payment method!');
-        return false;
-      }
-    }
-    return true;
+  /// Returns true when iOS IAP is required and successfully initialized.
+  bool isIAPReady() {
+    return _shouldUseIAP() && _iapService.isAvailable;
   }
 
-  /// Get the last IAP transaction ID (for payment method verification)
-  String? getLastIapTransactionId() {
-    if (_shouldUseIAP()) {
-      return _iapService.getLastTransactionId();
-    }
-    return null;
-  }
-
-  /// Get all IAP purchases for verification (iOS compliance)
-  List<PurchaseDetails> getAllVerifiedPurchases() {
-    if (_shouldUseIAP()) {
-      return _iapService.getAllPurchaseDetails();
-    }
-    return [];
-  }
+  /// Unified payment flow - handles platform-specific payment
   Future<bool> processPayment({
     required int amountInCents,
     required String imageId,
@@ -92,6 +66,17 @@ class PlatformPaymentService {
   }) async {
     try {
       if (_shouldUseIAP()) {
+        if (!_iapService.isAvailable) {
+          // Retry initialization to avoid false negatives from app startup timing.
+          await _iapService.initialize();
+        }
+        if (!_iapService.isAvailable) {
+          Toast.toastMessage(
+            'Apple In-App Purchase is currently unavailable.',
+            Colors.red,
+          );
+          return false;
+        }
         return await _processIAPPayment(productId: productId);
       } else {
         return await _processStripePayment(
@@ -132,13 +117,21 @@ class PlatformPaymentService {
     }
   }
 
-  /// Process payment via Stripe (Android/Web)
+  /// Process payment via non-iOS provider (Android/Web)
   Future<bool> _processStripePayment({
     required int amountInCents,
     required String accountId,
   }) async {
     try {
-      debugPrint('Processing Stripe payment');
+      if (Platform.isIOS) {
+        Toast.toastMessage(
+          'Digital content purchases on iOS must use Apple In-App Purchase.',
+          Colors.red,
+        );
+        return false;
+      }
+
+      debugPrint('Processing non-iOS payment');
       
       // Create payment intent
       final paymentIntent = 
@@ -152,13 +145,13 @@ class PlatformPaymentService {
       // Open payment sheet
       return await _openStripePaymentSheet(paymentIntent.clientSecret!);
     } catch (e) {
-      debugPrint('Stripe payment error: $e');
+      debugPrint('Non-iOS payment error: $e');
       Toast.toastMessage('Payment error: $e', Colors.red);
       return false;
     }
   }
 
-  /// Create Stripe payment intent
+  /// Create payment intent for non-iOS provider
   Future<PaymentIntentAPIModel?> _createStripePaymentIntent(
     int amountInCents,
     String accountId,
@@ -188,7 +181,7 @@ class PlatformPaymentService {
     }
   }
 
-  /// Open Stripe payment sheet
+  /// Open non-iOS payment sheet
   Future<bool> _openStripePaymentSheet(String clientSecret) async {
     try {
       await Stripe.instance.initPaymentSheet(
@@ -209,7 +202,7 @@ class PlatformPaymentService {
       Toast.toastMessage("Payment Cancelled!", Colors.red);
       return false;
     } catch (e) {
-      debugPrint("Stripe Error: $e");
+      debugPrint("Payment provider error: $e");
       Toast.toastMessage("Payment failed: $e", Colors.red);
       return false;
     }

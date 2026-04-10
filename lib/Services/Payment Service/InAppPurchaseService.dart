@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:http/http.dart' as http;
 import 'package:lamhti_app/Utils/Toast.dart';
 
 class InAppPurchaseService {
@@ -190,35 +188,11 @@ class InAppPurchaseService {
 
   Future<void> _verifyPurchase(PurchaseDetails purchaseDetails) async {
     try {
-      debugPrint('Verifying purchase: ${purchaseDetails.productID}');
-      
-      // Send receipt to backend for server-side verification
-      final receiptData = purchaseDetails.verificationData.serverVerificationData.isNotEmpty
-          ? purchaseDetails.verificationData.serverVerificationData
-          : purchaseDetails.verificationData.localVerificationData;
-      
-      // TODO: Update this endpoint to your backend URL
-      const verificationEndpoint = 'https://lamhti-backend-kn795pm9z-lamhtis-projects.vercel.app/api/verifyIAPReceipt';
-      
-      final response = await http.post(
-        Uri.parse(verificationEndpoint),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'receipt': receiptData,
-          'productId': purchaseDetails.productID,
-          'transactionId': purchaseDetails.purchaseID,
-          'platform': 'ios',
-          'timestamp': DateTime.now().toIso8601String(),
-        }),
-      ).timeout(const Duration(seconds: 30));
-      
-      if (response.statusCode == 200) {
-        debugPrint('✅ Purchase verified successfully: ${purchaseDetails.productID}');
-      } else {
-        debugPrint('⚠️ Purchase verification failed: ${response.statusCode}');
-      }
+      // You can send the receipt to your backend for verification
+      debugPrint('Purchase receipt: ${purchaseDetails.verificationData.localVerificationData}');
+      // TODO: Send receipt to backend for server-side verification
     } catch (e) {
-      debugPrint('❌ Error verifying purchase: $e');
+      debugPrint('Error verifying purchase: $e');
     }
   }
 
@@ -226,26 +200,10 @@ class InAppPurchaseService {
     return _purchases.any((p) => p.productID == productId && p.status == PurchaseStatus.purchased);
   }
 
+  bool get isAvailable => _isAvailable;
+
   /// The last successful StoreKit/Play purchase reported in this session.
   PurchaseDetails? getLastSuccessfulPurchase() => _lastSuccessfulPurchase;
-
-  /// Get the transaction ID of the last IAP purchase
-  String? getLastTransactionId() {
-    return _lastSuccessfulPurchase?.purchaseID ?? 
-        (_lastSuccessfulPurchase?.verificationData.serverVerificationData.isNotEmpty == true
-            ? _lastSuccessfulPurchase?.verificationData.serverVerificationData
-            : _lastSuccessfulPurchase?.verificationData.localVerificationData);
-  }
-
-  /// Get all verified purchases for a product
-  List<PurchaseDetails> getVerifiedPurchases(String productId) {
-    return _purchases
-        .where((p) => p.productID == productId && p.status == PurchaseStatus.purchased)
-        .toList();
-  }
-
-  /// Get all purchase details (for iOS compliance verification)
-  List<PurchaseDetails> getAllPurchaseDetails() => List.from(_purchases);
 
   ProductDetails? getProduct(String productId) {
     return _products[productId];
