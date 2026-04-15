@@ -17,20 +17,42 @@ Step 2: Verify In-App Purchases are Configured Correctly
 4. Navigate back to your current App Version submission page (e.g., 1.0 Prepare for Submission or In Review).
 5. Scroll down to the In-App Purchases section of the app version page. Make sure you have actually attached your In-App Purchases to the version you are submitting.
 
-Step 3: Reply to the App Review Team (Templates)
-Once you have confirmed everything above is correct, you need to reply to the reviewer in the App Store Connect Resolution Center.
+Step 3 — Accept Paid Apps Agreement
+Apple specifically mentioned this. Go to:
+App Store Connect → Agreements, Tax, and Banking
+Make sure the Paid Apps Agreement is Active (not pending or requiring action). Without this, IAP won't function at all in sandbox or production.
 
-Here are a few communication templates depending on how your app is structured. Choose the one that matches your app's flow and customize the bracketed [ ] text.
 
-Option A: The purchases are on a specific page (Settings, Profile, Premium Tab)
+Step 4 — Sandbox Testing Setup
+Apple reviews in sandbox environment. Make sure:
+
+Go to App Store Connect → Users and Access → Sandbox Testers
+Create a sandbox tester account if you don't have one
+In your reply to Apple, provide these sandbox tester credentials so they can test the purchase flow
+
+step 5
 Hello App Review Team,
 
-Thank you for reviewing our app. All required configurations for In-App Purchases have been completed, and the "Paid Apps Agreement" is fully active in our account.
+Thank you for your message. Here are the steps to locate and test the In-App Purchase in Lamhti:
 
-To locate the In-App Purchases for review, please follow these steps:
+**How to find the IAP:**
+1. Open the app and sign in (or create an account)
+2. Browse any image listed in the marketplace
+3. Tap on any image to open the detail screen
+4. Tap the 'Buy Now' button at the bottom
+5. The Apple In-App Purchase sheet will appear
 
-Launch the app and log in using the test credentials provided in the App Review Information section.
-On the main screen, tap on the [Profile / Settings / Menu] icon in the [bottom-right / top-left] corner.
-Tap on the button labeled ["Upgrade to Premium" / "Subscribe"].
-The paywall/purchase screen will appear, where you can test the sandbox purchases.
-Please let us know if you need any additional information or a video recording of the process. Thank you!
+**IAP Product Details:**
+- Product ID: com.lamhti.lamhti_mobile
+- Type: Consumable
+- Purpose: Allows the buyer to purchase and download a listed image
+
+**Sandbox Tester Credentials:**
+- Email: [YOUR SANDBOX EMAIL HERE]
+- Password: [YOUR SANDBOX PASSWORD HERE]
+
+**Note:** Please ensure you are logged into the sandbox environment on the test device. The IAP is only shown to users who are NOT the owner of the image listing.
+
+Please let us know if you need any further assistance.
+
+Thank you.
