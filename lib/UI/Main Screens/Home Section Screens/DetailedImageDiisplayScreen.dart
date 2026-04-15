@@ -1,9 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:developer';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -22,12 +22,10 @@ class DetailedImageDisplayScreen extends StatefulWidget {
   final String imageTitle;
   final String imageSize;
   final String location;
-
   final String imageDescription;
   final double imagePrice;
   final String ownerId;
   final String ownerEmail;
-
   final String? imageId;
   final bool isOwner;
 
@@ -52,274 +50,272 @@ class DetailedImageDisplayScreen extends StatefulWidget {
 
 class _DetailedImageDisplayScreenState
     extends State<DetailedImageDisplayScreen> {
-  // Platform-aware payment service (IAP on iOS, alternate flow on Android/Web)
-  final PlatformPaymentService _platformPaymentService = PlatformPaymentService();
+  final PlatformPaymentService _platformPaymentService =
+      PlatformPaymentService();
 
-  ImageBuyingService imageBuyingService = ImageBuyingService();
-
-  ImageUploadService _imageUploadService = ImageUploadService();
+  final ImageBuyingService imageBuyingService = ImageBuyingService();
+  final ImageUploadService _imageUploadService = ImageUploadService();
 
   bool isLoadingSheet = false;
+  bool isTapValue = false;
+
+  // ── NEW: track whether we're still waiting for IAP products ──
+  bool _iapLoading = false;
+  Timer? _iapRetryTimer;
 
   final _userUid = FirebaseAuth.instance.currentUser!.uid;
 
+  // ─────────────────────────────────────────────────────────────
+  // initState — kick off IAP price polling on iOS
+  // ─────────────────────────────────────────────────────────────
+  @override
+  void initState() {
+    super.initState();
+    if (Platform.isIOS) {
+      _startIapPricePolling();
+    }
+  }
+
+  @override
+  void dispose() {
+    _iapRetryTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Polls every second until the IAP product price is available (max 15 s).
+  /// This ensures the Buy button is enabled by the time a reviewer taps it.
+  void _startIapPricePolling() {
+    final price = _platformPaymentService
+        .getProductPrice(InAppPurchaseService.imageDownloadProductId);
+    if (price != null) return; // already loaded
+
+    setState(() => _iapLoading = true);
+
+    int attempts = 0;
+    _iapRetryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      attempts++;
+      final p = _platformPaymentService
+          .getProductPrice(InAppPurchaseService.imageDownloadProductId);
+
+      if (p != null || attempts >= 15) {
+        timer.cancel();
+        if (mounted) setState(() => _iapLoading = false);
+      }
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Payment
+  // ─────────────────────────────────────────────────────────────
   Future<bool> makePaymentAndBuyImage(int priceInCents) async {
     try {
-      setState(() {
-        isLoadingSheet = true; // Start loading
-      });
+      setState(() => isLoadingSheet = true);
 
-      String? _accountId = await _imageUploadService.getAccountIdFromUpload(widget.imageId!);
+      final accountId =
+          await _imageUploadService.getAccountIdFromUpload(widget.imageId!);
+      debugPrint("SELLER Account ID: $accountId");
 
-      debugPrint("SELLER Account ID: $_accountId");
-
-      // Use platform-aware payment service
       final paymentSuccessful = await _platformPaymentService.processPayment(
         amountInCents: priceInCents,
         imageId: widget.imageId ?? "unknown",
-        accountId: _accountId ?? "dummyId",
+        accountId: accountId ?? "dummyId",
         productId: InAppPurchaseService.imageDownloadProductId,
       );
 
-      // Hide loader before showing the platform purchase UI.
-      setState(() {
-        isLoadingSheet = false;
-      });
-
+      setState(() => isLoadingSheet = false);
       return paymentSuccessful;
-
-      // If no exception, update image status
-      // await imageBuyingService.updateImageStatusAndDetails(
-      //   widget.imageId!,
-      //   _userUid,
-      // );
     } catch (e) {
-      setState(() {
-        isLoadingSheet = false;
-      });
-
+      setState(() => isLoadingSheet = false);
       debugPrint("Payment Error: $e");
       Toast.toastMessage("Payment Error: $e", Colors.red);
       return false;
     }
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // Build
+  // ─────────────────────────────────────────────────────────────
   @override
-  bool isTapValue = false;
   Widget build(BuildContext context) {
-    final iapPrice = _platformPaymentService.getProductPrice(
-      InAppPurchaseService.imageDownloadProductId,
-    );
+    final iapPrice = _platformPaymentService
+        .getProductPrice(InAppPurchaseService.imageDownloadProductId);
     final isIos = Platform.isIOS;
 
-    return isLoadingSheet
-        ? Scaffold(body: Center(child: CircularProgressIndicator()))
-        : WillPopScope(
-          onWillPop: () async {
-            if (isTapValue == true) {
-              isTapValue = false;
-              setState(() {});
-              return false;
-            } else {
-              return true;
-            }
-          },
-          child: Scaffold(
-            backgroundColor: Colors.white,
-            body: Stack(
-              children: [
-                // Background image
-                SizedBox(
-                  height:
-                      isTapValue
-                          ? MediaQuery.of(context).size.height
-                          : MediaQuery.of(context).size.height * 0.7,
-                  width: double.infinity,
-                  // child: InteractiveViewer(
-                  //   panEnabled: true,
-                  //   minScale: 0.8,
-                  //   maxScale: 10.0,
-                  //   child: CachedNetworkImage(
-                  //     imageUrl: widget.imageUrl,
-                  //     placeholder:
-                  //         (context, url) => Shimmer.fromColors(
-                  //           baseColor: Colors.grey[300]!,
-                  //           highlightColor: Colors.grey[100]!,
-                  //           child: Container(color: Colors.white),
-                  //         ),
-                  //     errorWidget:
-                  //         (context, url, error) =>
-                  //             Icon(Icons.error, color: Colors.red),
-                  //     fit: BoxFit.cover,
-                  //   ),
-                  // ),
-                  child: GestureDetector(
-                    onTap: () {
-                      isTapValue = true;
-                      setState(() {});
-                    },
-                    child: CachedNetworkImage(
-                      imageUrl: widget.imageUrl,
-                      placeholder:
-                          (context, url) => Shimmer.fromColors(
-                            baseColor: Colors.grey[300]!,
-                            highlightColor: Colors.grey[100]!,
-                            child: Container(color: Colors.white),
-                          ),
-                      errorWidget:
-                          (context, url, error) =>
-                              Icon(Icons.error, color: Colors.red),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-                // SizedBox(
-                //   height: MediaQuery.of(context).size.height * 0.55,
-                //   width: double.infinity,
-                //   child: InteractiveViewer(
-                //     panEnabled: true, // Allow panning
-                //     minScale: 0.8, // Minimum zoom out
-                //     maxScale: 4.0, // Maximum zoom in
-                //     child: CachedNetworkImage(
-                //       imageUrl: widget.imageUrl,
-                //       placeholder:
-                //           (context, url) => Shimmer.fromColors(
-                //             baseColor: Colors.grey[300]!,
-                //             highlightColor: Colors.grey[100]!,
-                //             child: Container(color: Colors.white),
-                //           ),
-                //       errorWidget:
-                //           (context, url, error) =>
-                //               Icon(Icons.error, color: Colors.red),
-                //       fit: BoxFit.cover,
-                //     ),
-                //   ),
-                // ),
-                Positioned(
-                  top: 40.h,
-                  left: 10.w,
-                  child: InkWell(
-                    onTap: () {
-                      if (isTapValue == true) {
-                        isTapValue = false;
-                        setState(() {});
-                      } else {
-                        Navigator.pop(context);
-                      }
-                    },
-                    child: CircleAvatar(
-                      backgroundColor: Colors.black.withOpacity(0.6),
-                      radius: 22.r,
-                      child: Icon(Icons.arrow_back, color: Colors.white),
-                    ),
-                  ),
-                ),
+    // Show full-screen loader while payment sheet is open
+    if (isLoadingSheet) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
-                isTapValue == true
-                    ? SizedBox()
-                    : Align(
-                      alignment: Alignment.bottomCenter,
-                      child: Container(
-                        height: MediaQuery.of(context).size.height * 0.33,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(30.r),
-                            topRight: Radius.circular(30.r),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
-                              blurRadius: 10,
-                              offset: const Offset(0, -5),
+    return WillPopScope(
+      onWillPop: () async {
+        if (isTapValue) {
+          setState(() => isTapValue = false);
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Stack(
+          children: [
+            // ── Hero image ──────────────────────────────────────
+            SizedBox(
+              height: isTapValue
+                  ? MediaQuery.of(context).size.height
+                  : MediaQuery.of(context).size.height * 0.7,
+              width: double.infinity,
+              child: GestureDetector(
+                onTap: () => setState(() => isTapValue = true),
+                child: CachedNetworkImage(
+                  imageUrl: widget.imageUrl,
+                  placeholder: (context, url) => Shimmer.fromColors(
+                    baseColor: Colors.grey[300]!,
+                    highlightColor: Colors.grey[100]!,
+                    child: Container(color: Colors.white),
+                  ),
+                  errorWidget: (context, url, error) =>
+                      const Icon(Icons.error, color: Colors.red),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+
+            // ── Back button ─────────────────────────────────────
+            Positioned(
+              top: 40.h,
+              left: 10.w,
+              child: InkWell(
+                onTap: () {
+                  if (isTapValue) {
+                    setState(() => isTapValue = false);
+                  } else {
+                    Navigator.pop(context);
+                  }
+                },
+                child: CircleAvatar(
+                  backgroundColor: Colors.black.withOpacity(0.6),
+                  radius: 22.r,
+                  child: const Icon(Icons.arrow_back, color: Colors.white),
+                ),
+              ),
+            ),
+
+            // ── Bottom sheet ────────────────────────────────────
+            if (!isTapValue)
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  height: MediaQuery.of(context).size.height * 0.33,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(30.r),
+                      topRight: Radius.circular(30.r),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 10,
+                        offset: const Offset(0, -5),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 20.w, vertical: 15.h),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Drag handle
+                        Center(
+                          child: Container(
+                            height: 5.h,
+                            width: 40.w,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12.r),
+                              color: Colors.grey,
                             ),
-                          ],
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 20.w,
-                            vertical: 15.h,
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Center(
-                                child: Container(
-                                  height: 5.h,
-                                  width: 40.w,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12.r),
-                                    color: Colors.grey,
+                        ),
+                        SizedBox(height: 10.h),
+
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Title
+                                Text(
+                                  widget.imageTitle,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 24.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.black87,
                                   ),
                                 ),
-                              ),
+                                // Description
+                                Text(
+                                  'Description : ${widget.imageDescription}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16.sp,
+                                    fontWeight: FontWeight.w400,
+                                    color: Colors.grey[800],
+                                  ),
+                                ),
+                                if (widget.imageSize.isNotEmpty) ...[
+                                  SizedBox(height: 5.h),
+                                  Text(
+                                    'Image Size : ${widget.imageSize}',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16.sp,
+                                      fontWeight: FontWeight.w400,
+                                      color: Colors.grey[800],
+                                    ),
+                                  ),
+                                ],
+                                if (widget.location.isNotEmpty) ...[
+                                  SizedBox(height: 5.h),
+                                  Text(
+                                    'Location : ${widget.location}',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16.sp,
+                                      fontWeight: FontWeight.w400,
+                                      color: Colors.grey[800],
+                                    ),
+                                  ),
+                                ],
+                                SizedBox(height: 5.h),
 
-                              SizedBox(height: 10.h),
-                              Expanded(
-                                child: SingleChildScrollView(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      // Title
-                                      Text(
-                                        widget.imageTitle,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 24.sp,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.black87,
-                                        ),
-                                      ),
-
-                                      Text(
-                                        'Description : ${widget.imageDescription}',
-                                        // overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 16.sp,
-                                          fontWeight: FontWeight.w400,
-                                          color: Colors.grey[800],
-                                        ),
-                                      ),
-                                      widget.location.isEmpty
-                                          ? SizedBox()
-                                          : SizedBox(height: 5.h),
-                                      widget.imageSize.isEmpty
-                                          ? SizedBox()
-                                          : Text(
-                                            'Image Size : ${widget.imageSize}',
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 16.sp,
-                                              fontWeight: FontWeight.w400,
-                                              color: Colors.grey[800],
+                                // Price
+                                if (!widget.isOwner)
+                                  _iapLoading && isIos
+                                      ? Row(
+                                          children: [
+                                            SizedBox(
+                                              height: 16.h,
+                                              width: 16.w,
+                                              child:
+                                                  const CircularProgressIndicator(
+                                                      strokeWidth: 2),
                                             ),
-                                          ),
-                                      widget.location.isEmpty
-                                          ? SizedBox()
-                                          : SizedBox(height: 5.h),
-                                      widget.location.isEmpty
-                                          ? SizedBox()
-                                          : Text(
-                                            'Location : ${widget.location}',
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 16.sp,
-                                              fontWeight: FontWeight.w400,
-                                              color: Colors.grey[800],
+                                            SizedBox(width: 8.w),
+                                            Text(
+                                              'Loading price...',
+                                              style: TextStyle(
+                                                fontSize: 16.sp,
+                                                color: Colors.grey,
+                                              ),
                                             ),
-                                          ),
-                                      SizedBox(height: 5.h),
-
-                                      Visibility(
-                                        visible: !widget.isOwner,
-                                        child: Text(
+                                          ],
+                                        )
+                                      : Text(
                                           isIos
-                                              ? "Price: ${iapPrice ?? ''}"
+                                              ? "Price: ${iapPrice ?? 'Unavailable'}"
                                               : "Price: \$${widget.imagePrice.toStringAsFixed(2)}",
                                           style: TextStyle(
                                             fontSize: 18.sp,
@@ -327,170 +323,129 @@ class _DetailedImageDisplayScreenState
                                             color: Colors.black,
                                           ),
                                         ),
-                                      ),
-                                      SizedBox(height: 10.h),
-                                    ],
-                                  ),
-                                ),
-                              ),
-
-                              Visibility(
-                                visible: !widget.isOwner,
-                                child: SizedBox(
-                                  width: double.infinity,
-
-                                  child: ReuseableBottomButton(
-                                    enabled: !isIos || iapPrice != null,
-                                    buttonText: isIos
-                                        ? (iapPrice != null
-                                            ? "Buy Now for $iapPrice"
-                                            : "Loading Apple IAP price...")
-                                        : "Buy Now for \$${widget.imagePrice}",
-                                    onTap: () async {
-                                      if (isIos && iapPrice == null) {
-                                        Toast.toastMessage(
-                                          'Apple In-App Purchase is required on iOS, please try again in a moment.',
-                                          Colors.orange,
-                                        );
-                                        return;
-                                      }
-                                      try {
-                                        final priceInCents =
-                                            (widget.imagePrice * 100).round();
-                                        log(
-                                          '🟢 Buy tapped. priceInCents=$priceInCents, imageId=${widget.imageId}',
-                                        );
-
-                                        // 1) Take payment
-                                        final paid =
-                                            await makePaymentAndBuyImage(
-                                              priceInCents,
-                                            );
-                                        log('💳 Payment result: $paid');
-                                        if (!paid) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Payment was not completed.',
-                                              ),
-                                            ),
-                                          );
-                                          return;
-                                        }
-
-                                        // 2) Mark as sold
-                                        final txId =
-                                            _platformPaymentService.getLastIapTransactionId();
-                                        await ImageUploadService().markItemSoldAfterPayment(
-                                          documentId: widget.imageId!,
-                                          paymentMethod: isIos ? 'iap' : 'stripe',
-                                          transactionId: isIos ? txId : null,
-                                          productId: isIos
-                                              ? InAppPurchaseService.imageDownloadProductId
-                                              : null,
-                                        );
-                                        log(
-                                          '✅ Marked item sold: ${widget.imageId}',
-                                        );
-
-                                        // 3) Email buyer
-                                        final buyerEmail =
-                                            FirebaseAuth
-                                                .instance
-                                                .currentUser
-                                                ?.email;
-                                        if (buyerEmail != null &&
-                                            buyerEmail.isNotEmpty) {
-                                          final buyerOk = await MailSender.send(
-                                            toEmail: buyerEmail,
-                                            subject: 'Purchase Confirmation',
-                                            textBody:
-                                                'Hello,\nYou purchased  “${widget.imageTitle}” from lamthi at a cost of \$${widget.imagePrice}',
-                                          );
-                                          log(
-                                            '📧 Buyer email -> $buyerEmail | sent=$buyerOk',
-                                          );
-                                        } else {
-                                          log(
-                                            '⚠️ No buyer email available on current user.',
-                                          );
-                                        }
-
-                                        // 4) Email seller
-                                        // Prefer a known seller email prop; otherwise load from Firestore (uploads/{id}.email)
-                                        String? sellerEmail = widget.ownerEmail;
-
-                                        if (sellerEmail != null &&
-                                            sellerEmail.isNotEmpty) {
-                                          // final sellerOk = await MailSender.send(
-                                          //   toEmail: 'kngssaim@gmail.com',
-                                          //   subject: 'Your item was sold — Lamhti',
-                                          //   textBody:
-                                          //       'Hello,\n\nGreat news! Your product “${widget.imageTitle}” has been sold for \$${widget.imagePrice}.\n'
-                                          //       'Buyer: ${buyerEmail ?? "Lamhti buyer"}\n'
-                                          //       'Date: ${DateTime.now().toIso8601String()}\n\n'
-                                          //       'We’ll handle the next steps as per your settings.\n\n'
-                                          //       '— Lamhti Team',
-                                          // );
-                                          bool sellerOk = await MailSender.send(
-                                            toEmail: sellerEmail,
-                                            subject:
-                                                'Your item was sold — Lamhti',
-                                            textBody:
-                                                'Hello,\nCongratulations ! Your product “${widget.imageTitle}” has been sold for \$${widget.imagePrice}.\n'
-                                                'Buyer: ${FirebaseAuth.instance.currentUser?.email ?? "Lamhti buyer"}\n'
-                                                'Date: ${DateTime.now().toIso8601String()}\n\n'
-                                                'We’ll handle the next steps as per your settings.\n\n'
-                                                '~TEAM LAMHTI',
-                                          );
-                                          log(
-                                            '📧 Seller email -> $sellerEmail | sent=$sellerOk',
-                                          );
-                                        } else {
-                                          log(
-                                            '⚠️ No seller email found for imageId=${widget.imageId}',
-                                          );
-                                        }
-
-                                        // 5) Done
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Purchase complete. Emails sent.',
-                                            ),
-                                          ),
-                                        );
-                                      } catch (e, st) {
-                                        log(
-                                          '❌ Buy flow error: $e',
-                                          stackTrace: st,
-                                        );
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text('Error: $e'),
-                                            ),
-                                          );
-                                        }
-                                      }
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ],
+                                SizedBox(height: 10.h),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
+
+                        // Buy button
+                        if (!widget.isOwner)
+                          SizedBox(
+                            width: double.infinity,
+                            child: ReuseableBottomButton(
+                              // ── KEY FIX: button is enabled as soon as
+                              //    iapPrice loads; spinner shown while waiting ──
+                              enabled: isIos
+                                  ? (iapPrice != null && !_iapLoading)
+                                  : true,
+                              buttonText: isIos
+                                  ? (_iapLoading
+                                      ? "Loading price..."
+                                      : iapPrice != null
+                                          ? "Buy Now for $iapPrice"
+                                          : "Unavailable")
+                                  : "Buy Now for \$${widget.imagePrice}",
+                              onTap: () async {
+                                if (isIos && iapPrice == null) {
+                                  Toast.toastMessage(
+                                    'Apple In-App Purchase price not loaded yet, please wait.',
+                                    Colors.orange,
+                                  );
+                                  return;
+                                }
+                                try {
+                                  final priceInCents =
+                                      (widget.imagePrice * 100).round();
+                                  log('🟢 Buy tapped. priceInCents=$priceInCents, imageId=${widget.imageId}');
+
+                                  // 1) Take payment
+                                  final paid =
+                                      await makePaymentAndBuyImage(priceInCents);
+                                  log('💳 Payment result: $paid');
+                                  if (!paid) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Payment was not completed.')),
+                                      );
+                                    }
+                                    return;
+                                  }
+
+                                  // 2) Mark as sold
+                                  final txId = _platformPaymentService
+                                      .getLastIapTransactionId();
+                                  await ImageUploadService()
+                                      .markItemSoldAfterPayment(
+                                    documentId: widget.imageId!,
+                                    paymentMethod: isIos ? 'iap' : 'stripe',
+                                    transactionId: isIos ? txId : null,
+                                    productId: isIos
+                                        ? InAppPurchaseService
+                                            .imageDownloadProductId
+                                        : null,
+                                  );
+                                  log('✅ Marked item sold: ${widget.imageId}');
+
+                                  // 3) Email buyer
+                                  final buyerEmail =
+                                      FirebaseAuth.instance.currentUser?.email;
+                                  if (buyerEmail != null &&
+                                      buyerEmail.isNotEmpty) {
+                                    final buyerOk = await MailSender.send(
+                                      toEmail: buyerEmail,
+                                      subject: 'Purchase Confirmation',
+                                      textBody:
+                                          'Hello,\nYou purchased "${widget.imageTitle}" from Lamhti at a cost of \$${widget.imagePrice}',
+                                    );
+                                    log('📧 Buyer email -> $buyerEmail | sent=$buyerOk');
+                                  }
+
+                                  // 4) Email seller
+                                  final sellerEmail = widget.ownerEmail;
+                                  if (sellerEmail.isNotEmpty) {
+                                    final sellerOk = await MailSender.send(
+                                      toEmail: sellerEmail,
+                                      subject: 'Your item was sold — Lamhti',
+                                      textBody:
+                                          'Hello,\nCongratulations! Your product "${widget.imageTitle}" has been sold for \$${widget.imagePrice}.\n'
+                                          'Buyer: ${FirebaseAuth.instance.currentUser?.email ?? "Lamhti buyer"}\n'
+                                          'Date: ${DateTime.now().toIso8601String()}\n\n'
+                                          'We\'ll handle the next steps as per your settings.\n\n'
+                                          '~TEAM LAMHTI',
+                                    );
+                                    log('📧 Seller email -> $sellerEmail | sent=$sellerOk');
+                                  }
+
+                                  // 5) Done
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Purchase complete. Emails sent.')),
+                                    );
+                                  }
+                                } catch (e, st) {
+                                  log('❌ Buy flow error: $e', stackTrace: st);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error: $e')),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
+                          ),
+                      ],
                     ),
-              ],
-            ),
-          ),
-        );
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
