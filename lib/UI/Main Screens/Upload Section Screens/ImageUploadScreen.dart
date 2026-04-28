@@ -8,7 +8,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lamhti_app/Services/Firebase Storage/ImageUploadService.dart';
 import 'package:lamhti_app/Services/Firebase Storage/User Details Storage/UserDetailsStorageService.dart';
 import 'package:lamhti_app/Services/ImageCheckAPI/ImageCheckAPI.dart';
-import 'package:lamhti_app/Services/Seller Account Creation/SellerAccountCreationService.dart';
 import 'package:lamhti_app/Utils/ReuseableBottomButton.dart';
 import 'package:lamhti_app/Utils/Toast.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -38,7 +37,7 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
   final ImageCheckAPI imageCheckAPI = ImageCheckAPI();
   final ImageUploadService imageUploadService = ImageUploadService();
   final UserDetailsStorageService userDetailsStorageService =
-  UserDetailsStorageService();
+      UserDetailsStorageService();
 
   String userUID = FirebaseAuth.instance.currentUser!.uid;
 
@@ -46,6 +45,7 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
   void initState() {
     super.initState();
     // Seller onboarding disabled (Stripe removed)
+    // Sellers can now upload immediately without onboarding
     setState(() {
       isProcessingStatus = false;
       isUserOnboarded = true;
@@ -57,14 +57,8 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
     // Sellers can upload images to sell directly via IAP
     setState(() => isProcessingStatus = false);
   }
-  }
 
   Future<void> pickImage() async {
-    if (!isUserOnboarded) {
-      _showOnboardingDialog(context, _onBoardingLink);
-      return;
-    }
-
     final pickedImage = await ImagePicker().pickImage(
       source: ImageSource.gallery,
     );
@@ -77,11 +71,6 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
   }
 
   void verifyAndUpload() async {
-    if (!isUserOnboarded) {
-      _showOnboardingDialog(context, _onBoardingLink);
-      return;
-    }
-
     if (_imageFile != null && _formKey.currentState!.validate()) {
       setState(() => isLoading = true);
 

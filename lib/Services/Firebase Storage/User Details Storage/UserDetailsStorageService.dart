@@ -48,6 +48,8 @@ class UserDetailsStorageService {
 
       final accountId = doc.data()?["accountId"] as String?;
       return accountId;
+    } catch (e) {
+      debugPrint("getUserAccountId error: $e");
       return null;
     }
   }
