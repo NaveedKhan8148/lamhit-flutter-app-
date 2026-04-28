@@ -22,7 +22,7 @@ class InAppPurchaseService {
   InAppPurchaseService._internal();
 
   // Product IDs - Match these with App Store Connect and Google Play Console
-  static const String imageDownloadProductId = 'com.lamhti.lamhti_mobile';
+  static const String imageDownloadProductId = 'com.lamhti.lamhtiapp.image_download';
   static const String premiumAccessProductId = 'com.lamhti.premium_access';
 
   Future<void> initialize() async {

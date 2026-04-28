@@ -52,7 +52,7 @@ class PlatformPaymentService {
   /// [amountInCents] - Price in cents (for reference/analytics only)
   /// [imageId] - Image identifier (for backend recording)
   /// [accountId] - Seller/account identifier 
-  /// [productId] - IAP product ID (e.g., 'com.lamhti.lamhti_mobile')
+  /// [productId] - IAP product ID (e.g., 'com.lamhti.image_download')
   Future<bool> processPayment({
     required int amountInCents,
     required String imageId,
