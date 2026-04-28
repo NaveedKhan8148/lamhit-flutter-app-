@@ -20,6 +20,8 @@ void main() async {
     appPassword:
         "llxs umel hesg wdjg", //'xdai fxyk dxht fwuj', // Gmail App Password
   );
+  // TODO: Screenshot prevention disabled temporarily for debugging
+  // Uncomment the lines below to re-enable screenshot protection
   await ScreenProtector.preventScreenshotOn();
   await ScreenProtector.protectDataLeakageOn();
 

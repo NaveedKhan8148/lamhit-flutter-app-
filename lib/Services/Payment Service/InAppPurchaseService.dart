@@ -84,12 +84,26 @@ class InAppPurchaseService {
   }) async {
     try {
       if (!_isAvailable) {
-        Toast.toastMessage('In-App Purchase not available', Colors.red);
+        Toast.toastMessage('In-App Purchase not available on this device', Colors.red);
         return null;
       }
 
+      // If product isn't cached yet, try a fresh load before failing
       if (!_products.containsKey(productId)) {
-        Toast.toastMessage('Product not found', Colors.red);
+        debugPrint('[IAP] Product "$productId" not in cache — reloading products...');
+        await _loadProducts();
+      }
+
+      if (!_products.containsKey(productId)) {
+        final loaded = _products.keys.toList();
+        final msg = loaded.isEmpty
+            ? 'No IAP products loaded. Check that "$productId" is created '
+              'and Active in App Store Connect / Google Play Console, '
+              'and that the app was installed from the store (not sideloaded).'
+            : 'Product "$productId" not found. Loaded: ${loaded.join(", ")}. '
+              'Verify the product ID exactly matches the store listing.';
+        debugPrint('[IAP] $msg');
+        Toast.toastMessage('Product not found — see logs for details', Colors.red);
         return null;
       }
 
@@ -120,7 +134,7 @@ class InAppPurchaseService {
       final details = await completer.future.timeout(timeout);
       return details;
     } catch (e) {
-      debugPrint('Error purchasing product: $e');
+      debugPrint('[IAP] Error purchasing product: $e');
       Toast.toastMessage('Purchase failed: $e', Colors.red);
       // If initiation failed, unblock any waiters.
       final c = _pendingPurchaseCompleters.remove(productId);
