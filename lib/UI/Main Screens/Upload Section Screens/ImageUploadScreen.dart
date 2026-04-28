@@ -37,8 +37,6 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
 
   final ImageCheckAPI imageCheckAPI = ImageCheckAPI();
   final ImageUploadService imageUploadService = ImageUploadService();
-  final SellerAccountCreationService sellerAccountCreationService =
-  SellerAccountCreationService();
   final UserDetailsStorageService userDetailsStorageService =
   UserDetailsStorageService();
 
@@ -47,37 +45,18 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
   @override
   void initState() {
     super.initState();
-    checkUserOnboardingStatus();
+    // Seller onboarding disabled (Stripe removed)
+    setState(() {
+      isProcessingStatus = false;
+      isUserOnboarded = true;
+    });
   }
 
   Future<void> checkUserOnboardingStatus() async {
-    setState(() => isProcessingStatus = true);
-
-    final _accountId = await userDetailsStorageService.getUserAccountId();
-
-    // 🔥 IMPORTANT: actual onboarding check
-    final statusAPIResponse = await sellerAccountCreationService
-        .checkOnboardingStatus(_accountId!);
-
-    bool? chargesEnabledStatus = statusAPIResponse?.chargesEnabled;
-
-    if (chargesEnabledStatus == true) {
-      setState(() {
-        isProcessingStatus = false;
-        isUserOnboarded = true;
-      });
-    } else {
-      // If not onboarded, generate onboarding link
-      final onBoardingAPIResponse = await sellerAccountCreationService
-          .generateOnboardingLink(_accountId!);
-
-      _onBoardingLink = onBoardingAPIResponse!.url!;
-      setState(() => isProcessingStatus = false);
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showOnboardingDialog(context, _onBoardingLink);
-      });
-    }
+    // ✅ Onboarding check disabled - no longer required
+    // Sellers can upload images to sell directly via IAP
+    setState(() => isProcessingStatus = false);
+  }
   }
 
   Future<void> pickImage() async {

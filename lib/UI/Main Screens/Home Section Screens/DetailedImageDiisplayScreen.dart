@@ -380,12 +380,10 @@ class _DetailedImageDisplayScreenState
                                   await ImageUploadService()
                                       .markItemSoldAfterPayment(
                                     documentId: widget.imageId!,
-                                    paymentMethod: isIos ? 'iap' : 'stripe',
-                                    transactionId: isIos ? txId : null,
-                                    productId: isIos
-                                        ? InAppPurchaseService
-                                            .imageDownloadProductId
-                                        : null,
+                                    paymentMethod: 'iap',
+                                    transactionId: txId,
+                                    productId: InAppPurchaseService
+                                        .imageDownloadProductId,
                                   );
                                   log('✅ Marked item sold: ${widget.imageId}');
 

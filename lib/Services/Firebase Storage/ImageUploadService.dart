@@ -96,7 +96,7 @@ class ImageUploadService {
   /// Marks an image as sold/unlocked to the current user after a successful payment.
   Future<void> markItemSoldAfterPayment({
     required String documentId,
-    required String paymentMethod, // e.g. "iap" | "stripe"
+    required String paymentMethod, // e.g. "iap"
     String? transactionId,
     String? productId,
   }) async {
