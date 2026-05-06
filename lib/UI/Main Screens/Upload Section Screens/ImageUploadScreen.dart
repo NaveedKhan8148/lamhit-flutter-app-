@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -25,7 +26,6 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
   bool isProcessingStatus = false;
   bool _cancelled = false;
 
-  // Loading stage message shown to user during the process
   String _loadingMessage = "Connecting to server, please wait...";
 
   final _formKey = GlobalKey<FormState>();
@@ -47,9 +47,7 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
   void initState() {
     super.initState();
     userUID = FirebaseAuth.instance.currentUser!.uid;
-    setState(() {
-      isProcessingStatus = false;
-    });
+    setState(() => isProcessingStatus = false);
   }
 
   @override
@@ -90,12 +88,12 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
     _cancelled = false;
     setState(() {
       isLoading = true;
-      _loadingMessage = "Starting image server...\nFirst-time startup may take ~2 minutes.\nPlease keep the app open.";
+      _loadingMessage =
+          "Preparing upload… please wait";
     });
 
     try {
-      // ── Step 1: Try image verification (best-effort — falls back if server down) ──
-      _setLoadingMessage("Starting image server...\nPlease keep the app open.");
+      _setLoadingMessage("Preparing upload… please wait");
       debugPrint('[Upload] Calling image check API...');
 
       bool verificationSkipped = false;
@@ -114,29 +112,27 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
         } else {
           debugPrint('[Upload] API Response status: ${apiResponse.status}');
           if (apiResponse.status == "rejected") {
-            final reason =
-                apiResponse.overallReason ?? "Image does not meet requirements";
+            final reason = apiResponse.overallReason ??
+                "Image does not meet requirements";
             debugPrint('[Upload] Image rejected: $reason');
             setState(() => _imageFile = null);
             Toast.toastMessage("Image rejected: $reason", Colors.red);
             _showErrorDialog("Image Rejected", reason);
             shouldUpload = false;
           } else if (apiResponse.status != "approved") {
-            debugPrint('[Upload] Unexpected status: ${apiResponse.status} — skipping verification');
+            debugPrint(
+                '[Upload] Unexpected status: ${apiResponse.status} — skipping');
             verificationSkipped = true;
           }
         }
       } catch (verifyError) {
-        // Server unreachable / timed out — skip check, upload anyway
-        debugPrint('[Upload] Verification server failed: $verifyError');
-        debugPrint('[Upload] Falling back to direct upload...');
+        debugPrint('[Upload] Verification failed: $verifyError');
         verificationSkipped = true;
       }
 
       if (!shouldUpload || _cancelled) return;
 
-      // ── Step 2: Upload to Firebase ──
-      _setLoadingMessage("Uploading image, please wait...");
+      _setLoadingMessage("Uploading image, please wait…");
 
       if (verificationSkipped) {
         Toast.toastMessage(
@@ -159,7 +155,6 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
       debugPrint('[Upload] Upload successful!');
       Toast.toastMessage("Image uploaded successfully!", Colors.green);
 
-      // Clear form
       if (mounted) {
         setState(() {
           _imageFile = null;
@@ -173,7 +168,6 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
       }
     } on FirebaseException catch (e) {
       if (_cancelled) return;
-      debugPrint('[Upload] Firebase exception: ${e.code} - ${e.message}');
       final msg = e.message ?? e.code;
       Toast.toastMessage("Upload error: $msg", Colors.red);
       _showErrorDialog("Upload Error", msg);
@@ -186,7 +180,6 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
       _showErrorDialog("Error", msg);
     } finally {
       if (mounted && !_cancelled) setState(() => isLoading = false);
-      debugPrint('[Upload] Upload process ended');
     }
   }
 
@@ -211,6 +204,10 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // ── iPad fix: cap picker height so it doesn't dominate the screen ──
+    final screenHeight = MediaQuery.of(context).size.height;
+    final pickerHeight = min(screenHeight * 0.3, 280.0);
 
     if (isProcessingStatus) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -259,158 +256,168 @@ class _ImageUploadScreenState extends State<ImageUploadScreen> {
               theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
         ),
       ),
-      body: ListView(
-        padding: EdgeInsets.all(20.w),
-        children: [
-          Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                // Image picker
-                InkWell(
-                  onTap: pickImage,
-                  child: Container(
-                    height: MediaQuery.of(context).size.height * 0.3,
-                    width: MediaQuery.of(context).size.width * 0.8,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12.0.r),
-                      border: Border.all(color: Colors.grey, width: 2.w),
-                    ),
-                    child: _imageFile != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(12.r),
-                            child: Image.file(_imageFile!, fit: BoxFit.cover),
-                          )
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(Icons.add, size: 40),
-                              SizedBox(height: 10),
-                              Text(
-                                "Tap to pick an image",
-                                style: TextStyle(
-                                    fontSize: 14, fontWeight: FontWeight.bold),
+      body: Center(
+        // ── iPad fix: constrain form width on large screens ──
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: ListView(
+            padding: EdgeInsets.all(20.w),
+            children: [
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    // Image picker
+                    InkWell(
+                      onTap: pickImage,
+                      child: Container(
+                        // ── iPad fix: use capped height ──
+                        height: pickerHeight,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12.0.r),
+                          border: Border.all(color: Colors.grey, width: 2.w),
+                        ),
+                        child: _imageFile != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(12.r),
+                                child:
+                                    Image.file(_imageFile!, fit: BoxFit.cover),
+                              )
+                            : const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add, size: 40),
+                                  SizedBox(height: 10),
+                                  Text(
+                                    "Tap to pick an image",
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                  ),
-                ),
-                SizedBox(height: 40.h),
-
-                // Title
-                TextFormField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: "Image Title",
-                    hintText: "Enter image title",
-                  ),
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? "Please provide title"
-                      : null,
-                ),
-                SizedBox(height: 20.h),
-
-                // Amount
-                TextFormField(
-                  controller: amountController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: "Amount",
-                    hintText: "Enter amount between \$5 to \$2000",
-                  ),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty)
-                      return "Please enter an amount";
-                    final amount = double.tryParse(v);
-                    if (amount == null) return "Please enter a valid number";
-                    if (amount < 5 || amount > 2000)
-                      return "Amount must be between 5 and 2000";
-                    return null;
-                  },
-                ),
-                SizedBox(height: 20.h),
-
-                // Image Size
-                TextFormField(
-                  controller: imageSizeController,
-                  decoration: const InputDecoration(
-                    labelText: "Image size",
-                    hintText: "Enter image size",
-                  ),
-                ),
-                SizedBox(height: 20.h),
-
-                // Location
-                TextFormField(
-                  controller: locationController,
-                  decoration: const InputDecoration(
-                    labelText: "Location",
-                    hintText: "Enter location",
-                  ),
-                ),
-                SizedBox(height: 20.h),
-
-                // Category
-                TextFormField(
-                  controller: imageCategoryController,
-                  readOnly: true,
-                  decoration: InputDecoration(
-                    labelText: "Image Category",
-                    hintText: "Select image category",
-                    border: const OutlineInputBorder(),
-                    suffixIcon: PopupMenuButton<String>(
-                      icon: const Icon(Icons.arrow_drop_down),
-                      onSelected: (value) =>
-                          imageCategoryController.text = value,
-                      itemBuilder: (context) => [
-                        'Art',
-                        'Tech',
-                        'Food',
-                        'Travel',
-                        'Nature',
-                        'Fashion',
-                        'Other',
-                      ]
-                          .map((e) =>
-                              PopupMenuItem(value: e, child: Text(e)))
-                          .toList(),
+                      ),
                     ),
-                  ),
-                  validator: (v) =>
-                      (v == null || v.isEmpty) ? "Please select a category" : null,
-                ),
-                SizedBox(height: 20.h),
+                    SizedBox(height: 40.h),
 
-                // Description
-                TextFormField(
-                  controller: descriptionController,
-                  minLines: 3,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: "Image Description",
-                    hintText: "Enter image description",
-                  ),
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? "Please provide description"
-                      : null,
-                ),
-                SizedBox(height: 40.h),
+                    // Title
+                    TextFormField(
+                      controller: titleController,
+                      decoration: const InputDecoration(
+                        labelText: "Image Title",
+                        hintText: "Enter image title",
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? "Please provide title"
+                          : null,
+                    ),
+                    SizedBox(height: 20.h),
 
-                ReuseableBottomButton(
-                  buttonText: "Upload Now",
-                  onTap: verifyAndUpload,
+                    // Amount
+                    TextFormField(
+                      controller: amountController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: "Amount",
+                        hintText: "Enter amount between \$5 to \$2000",
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty)
+                          return "Please enter an amount";
+                        final amount = double.tryParse(v);
+                        if (amount == null) return "Please enter a valid number";
+                        if (amount < 5 || amount > 2000)
+                          return "Amount must be between 5 and 2000";
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: 20.h),
+
+                    // Image Size
+                    TextFormField(
+                      controller: imageSizeController,
+                      decoration: const InputDecoration(
+                        labelText: "Image size",
+                        hintText: "Enter image size",
+                      ),
+                    ),
+                    SizedBox(height: 20.h),
+
+                    // Location
+                    TextFormField(
+                      controller: locationController,
+                      decoration: const InputDecoration(
+                        labelText: "Location",
+                        hintText: "Enter location",
+                      ),
+                    ),
+                    SizedBox(height: 20.h),
+
+                    // Category
+                    TextFormField(
+                      controller: imageCategoryController,
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        labelText: "Image Category",
+                        hintText: "Select image category",
+                        border: const OutlineInputBorder(),
+                        suffixIcon: PopupMenuButton<String>(
+                          icon: const Icon(Icons.arrow_drop_down),
+                          onSelected: (value) =>
+                              imageCategoryController.text = value,
+                          itemBuilder: (context) => [
+                            'Art',
+                            'Tech',
+                            'Food',
+                            'Travel',
+                            'Nature',
+                            'Fashion',
+                            'Other',
+                          ]
+                              .map((e) =>
+                                  PopupMenuItem(value: e, child: Text(e)))
+                              .toList(),
+                        ),
+                      ),
+                      validator: (v) => (v == null || v.isEmpty)
+                          ? "Please select a category"
+                          : null,
+                    ),
+                    SizedBox(height: 20.h),
+
+                    // Description
+                    TextFormField(
+                      controller: descriptionController,
+                      minLines: 3,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: "Image Description",
+                        hintText: "Enter image description",
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? "Please provide description"
+                          : null,
+                    ),
+                    SizedBox(height: 40.h),
+
+                    ReuseableBottomButton(
+                      buttonText: "Upload Now",
+                      onTap: verifyAndUpload,
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-// 🌐 WebView Screen (kept for potential future use)
+// 🌐 WebView Screen
 class WebViewScreen extends StatefulWidget {
   final String url;
   const WebViewScreen({super.key, required this.url});
