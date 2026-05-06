@@ -58,16 +58,21 @@ class _DetailedImageDisplayScreenState
 
   bool isLoadingSheet = false;
   bool isTapValue = false;
-
-  // ── NEW: track whether we're still waiting for IAP products ──
   bool _iapLoading = false;
   Timer? _iapRetryTimer;
 
   final _userUid = FirebaseAuth.instance.currentUser!.uid;
 
   // ─────────────────────────────────────────────────────────────
-  // initState — kick off IAP price polling on iOS
+  // Returns true for Apple Hide My Email / private relay addresses.
+  // These look like: abc123xyz@privaterelay.appleid.com
+  // External SMTP servers cannot deliver to them → always bounce.
   // ─────────────────────────────────────────────────────────────
+  bool _isPrivateRelayEmail(String? email) {
+    if (email == null || email.isEmpty) return false;
+    return email.toLowerCase().contains('privaterelay.appleid.com');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -82,12 +87,10 @@ class _DetailedImageDisplayScreenState
     super.dispose();
   }
 
-  /// Polls every second until the IAP product price is available (max 15 s).
-  /// This ensures the Buy button is enabled by the time a reviewer taps it.
   void _startIapPricePolling() {
     final price = _platformPaymentService
         .getProductPrice(InAppPurchaseService.imageDownloadProductId);
-    if (price != null) return; // already loaded
+    if (price != null) return;
 
     setState(() => _iapLoading = true);
 
@@ -96,7 +99,6 @@ class _DetailedImageDisplayScreenState
       attempts++;
       final p = _platformPaymentService
           .getProductPrice(InAppPurchaseService.imageDownloadProductId);
-
       if (p != null || attempts >= 15) {
         timer.cancel();
         if (mounted) setState(() => _iapLoading = false);
@@ -104,9 +106,6 @@ class _DetailedImageDisplayScreenState
     });
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // Payment
-  // ─────────────────────────────────────────────────────────────
   Future<bool> makePaymentAndBuyImage(int priceInCents) async {
     try {
       setState(() => isLoadingSheet = true);
@@ -132,16 +131,12 @@ class _DetailedImageDisplayScreenState
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // Build
-  // ─────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final iapPrice = _platformPaymentService
         .getProductPrice(InAppPurchaseService.imageDownloadProductId);
     final isIos = Platform.isIOS;
 
-    // Show full-screen loader while payment sheet is open
     if (isLoadingSheet) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -158,7 +153,6 @@ class _DetailedImageDisplayScreenState
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            // ── Hero image ──────────────────────────────────────
             SizedBox(
               height: isTapValue
                   ? MediaQuery.of(context).size.height
@@ -180,7 +174,6 @@ class _DetailedImageDisplayScreenState
               ),
             ),
 
-            // ── Back button ─────────────────────────────────────
             Positioned(
               top: 40.h,
               left: 10.w,
@@ -200,7 +193,6 @@ class _DetailedImageDisplayScreenState
               ),
             ),
 
-            // ── Bottom sheet ────────────────────────────────────
             if (!isTapValue)
               Align(
                 alignment: Alignment.bottomCenter,
@@ -227,7 +219,6 @@ class _DetailedImageDisplayScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Drag handle
                         Center(
                           child: Container(
                             height: 5.h,
@@ -245,7 +236,6 @@ class _DetailedImageDisplayScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Title
                                 Text(
                                   widget.imageTitle,
                                   style: GoogleFonts.poppins(
@@ -254,7 +244,6 @@ class _DetailedImageDisplayScreenState
                                     color: Colors.black87,
                                   ),
                                 ),
-                                // Description
                                 Text(
                                   'Description : ${widget.imageDescription}',
                                   style: GoogleFonts.poppins(
@@ -291,7 +280,6 @@ class _DetailedImageDisplayScreenState
                                 ],
                                 SizedBox(height: 5.h),
 
-                                // Price
                                 if (!widget.isOwner)
                                   _iapLoading && isIos
                                       ? Row(
@@ -329,13 +317,10 @@ class _DetailedImageDisplayScreenState
                           ),
                         ),
 
-                        // Buy button
                         if (!widget.isOwner)
                           SizedBox(
                             width: double.infinity,
                             child: ReuseableBottomButton(
-                              // ── KEY FIX: button is enabled as soon as
-                              //    iapPrice loads; spinner shown while waiting ──
                               enabled: isIos
                                   ? (iapPrice != null && !_iapLoading)
                                   : true,
@@ -360,12 +345,13 @@ class _DetailedImageDisplayScreenState
                                   log('🟢 Buy tapped. priceInCents=$priceInCents, imageId=${widget.imageId}');
 
                                   // 1) Take payment
-                                  final paid =
-                                      await makePaymentAndBuyImage(priceInCents);
+                                  final paid = await makePaymentAndBuyImage(
+                                      priceInCents);
                                   log('💳 Payment result: $paid');
                                   if (!paid) {
                                     if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         const SnackBar(
                                             content: Text(
                                                 'Payment was not completed.')),
@@ -387,42 +373,63 @@ class _DetailedImageDisplayScreenState
                                   );
                                   log('✅ Marked item sold: ${widget.imageId}');
 
-                                  // 3) Email buyer
+                                  // ── 3) Email buyer ──────────────────────────
+                                  // Apple's "Hide My Email" feature gives users a
+                                  // private relay address (xyz@privaterelay.appleid.com).
+                                  // External SMTP cannot deliver to these — skip them
+                                  // silently to avoid bounce errors.
                                   final buyerEmail =
                                       FirebaseAuth.instance.currentUser?.email;
+
                                   if (buyerEmail != null &&
-                                      buyerEmail.isNotEmpty) {
+                                      buyerEmail.isNotEmpty &&
+                                      !_isPrivateRelayEmail(buyerEmail)) {
                                     final buyerOk = await MailSender.send(
                                       toEmail: buyerEmail,
                                       subject: 'Purchase Confirmation',
                                       textBody:
-                                          'Hello,\nYou purchased "${widget.imageTitle}" from Lamhti at a cost of \$${widget.imagePrice}',
+                                          'Hello,\nYou purchased "${widget.imageTitle}" '
+                                          'from Lamhti at a cost of \$${widget.imagePrice}',
                                     );
                                     log('📧 Buyer email -> $buyerEmail | sent=$buyerOk');
+                                  } else {
+                                    log('⚠️ Buyer email skipped — private relay or null: $buyerEmail');
                                   }
 
-                                  // 4) Email seller
+                                  // ── 4) Email seller ──────────────────────────
+                                  // Use a human-readable buyer label in the seller
+                                  // notification when the buyer used Apple relay.
                                   final sellerEmail = widget.ownerEmail;
-                                  if (sellerEmail.isNotEmpty) {
+                                  final buyerLabel =
+                                      (buyerEmail != null &&
+                                              !_isPrivateRelayEmail(buyerEmail))
+                                          ? buyerEmail
+                                          : 'Lamhti buyer';
+
+                                  if (sellerEmail.isNotEmpty &&
+                                      !_isPrivateRelayEmail(sellerEmail)) {
                                     final sellerOk = await MailSender.send(
                                       toEmail: sellerEmail,
                                       subject: 'Your item was sold — Lamhti',
                                       textBody:
-                                          'Hello,\nCongratulations! Your product "${widget.imageTitle}" has been sold for \$${widget.imagePrice}.\n'
-                                          'Buyer: ${FirebaseAuth.instance.currentUser?.email ?? "Lamhti buyer"}\n'
+                                          'Hello,\nCongratulations! Your product '
+                                          '"${widget.imageTitle}" has been sold for '
+                                          '\$${widget.imagePrice}.\n'
+                                          'Buyer: $buyerLabel\n'
                                           'Date: ${DateTime.now().toIso8601String()}\n\n'
                                           'We\'ll handle the next steps as per your settings.\n\n'
                                           '~TEAM LAMHTI',
                                     );
                                     log('📧 Seller email -> $sellerEmail | sent=$sellerOk');
+                                  } else {
+                                    log('⚠️ Seller email skipped — private relay or empty: $sellerEmail');
                                   }
 
                                   // 5) Done
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                          content: Text(
-                                              'Purchase complete. Emails sent.')),
+                                          content: Text('Purchase complete!')),
                                     );
                                   }
                                 } catch (e, st) {
