@@ -115,6 +115,27 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    
+    // Responsive grid configuration
+    int crossAxisCount;
+    double childAspectRatio;
+    
+    if (screenWidth >= 1200) {
+      crossAxisCount = 4;
+      childAspectRatio = isLandscape ? 0.9 : 0.75;
+    } else if (screenWidth >= 900) {
+      crossAxisCount = 3;
+      childAspectRatio = isLandscape ? 0.85 : 0.8;
+    } else if (screenWidth >= 650) {
+      crossAxisCount = 2;
+      childAspectRatio = 0.7;
+    } else {
+      crossAxisCount = 1;
+      childAspectRatio = 0.65;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -139,6 +160,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(80.r),
                   borderSide: BorderSide(color: Colors.black),
                 ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16.w,
+                  vertical: 12.h,
+                ),
               ),
             ),
             SizedBox(height: 12.h),
@@ -153,10 +178,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         itemCount:
                             _filteredImages.length + (_isLoadingMore ? 1 : 0),
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
+                          crossAxisCount: crossAxisCount,
                           mainAxisSpacing: 16.h,
                           crossAxisSpacing: 12.w,
-                          childAspectRatio: 0.7,
+                          childAspectRatio: childAspectRatio,
                         ),
                         itemBuilder: (context, index) {
                           if (index < _filteredImages.length) {
@@ -197,6 +222,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       CrossAxisAlignment.stretch,
                                   children: [
                                     Expanded(
+                                      flex: 3,
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.vertical(
                                           top: Radius.circular(16.r),
@@ -240,6 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             style: theme.textTheme.titleSmall
                                                 ?.copyWith(
                                                   fontWeight: FontWeight.w600,
+                                                  fontSize: screenWidth >= 900 ? 13.sp : 14.sp,
                                                 ),
                                           ),
                                           SizedBox(height: 5.h),
@@ -251,6 +278,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             style: theme.textTheme.titleSmall
                                                 ?.copyWith(
                                                   fontWeight: FontWeight.w600,
+                                                  fontSize: screenWidth >= 900 ? 12.sp : 13.sp,
                                                 ),
                                           ),
                                           SizedBox(height: 4.h),
@@ -261,6 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
                                                   color: Colors.grey[600],
+                                                  fontSize: screenWidth >= 900 ? 11.sp : 12.sp,
                                                 ),
                                           ),
                                           SizedBox(height: 6.h),

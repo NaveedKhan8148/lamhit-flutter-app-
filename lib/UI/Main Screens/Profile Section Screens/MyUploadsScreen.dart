@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -26,152 +28,155 @@ class _MyuploadsscreenState extends State<Myuploadsscreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final maxWidth = min(920.0, screenWidth * 0.96);
 
     return Scaffold(
       appBar: AppBar(
         title: Text("My Uploads"),
         automaticallyImplyLeading: true,
       ),
-      body: FutureBuilder(
-        future: imageFetchService.getUserAvaiableUplaods(uid),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: FutureBuilder(
+              future: imageFetchService.getUserAvaiableUplaods(uid),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
 
-          if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
-          }
+                if (snapshot.hasError) {
+                  return Center(child: Text("Error: ${snapshot.error}"));
+                }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Text(
-                "No images available. Try uploading one.",
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            );
-          }
-
-          final uploads = snapshot.data!.docs;
-
-          return ListView.builder(
-            padding: EdgeInsets.symmetric(vertical: 10.h),
-            itemCount: uploads.length,
-            itemBuilder: (context, index) {
-              final imageData = uploads[index];
-
-              return InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (context) => DetailedImageDisplayScreen(
-                            imageSize: imageData['imageSize'],
-                            location: imageData['location'],
-                            ownerId: imageData["userId"],
-                            ownerEmail: imageData['email'],
-                            imageUrl: imageData["imageUrl"],
-                            imageTitle: imageData["title"],
-                            imageDescription: imageData["description"],
-                            imagePrice: 2.0,
-                            isOwner: true,
-                          ),
-                    ),
-                  );
-                },
-
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.white,
-                    radius: 22.r,
-                    child: ClipOval(
-                      child: CachedNetworkImage(
-                        imageUrl: imageData["imageUrl"],
-                        width: 50.w,
-                        height: 50.h,
-                        placeholder:
-                            (context, url) => Shimmer.fromColors(
-                              baseColor: Colors.grey[300]!,
-                              highlightColor: Colors.grey[100]!,
-                              child: Container(
-                                color: Colors.white,
-                                height: 50.h,
-                                width: 50.h,
-                              ),
-                            ),
-                        errorWidget:
-                            (context, url, error) =>
-                                const Icon(Icons.error, color: Colors.red),
-                        fit: BoxFit.cover,
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      "No images available. Try uploading one.",
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                  title: Text(
-                    imageData["title"],
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    imageData["description"],
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.black),
-                    onPressed: () async {
-                      final confirm = await showDialog(
-                        context: context,
-                        builder:
-                            (context) => AlertDialog(
-                              title: const Text('Delete Image'),
-                              content: const Text(
-                                'Are you sure you want to delete this image?',
-                              ),
-                              actions: [
-                                TextButton(
-                                  child: const Text('Cancel'),
-                                  onPressed:
-                                      () => Navigator.pop(context, false),
-                                ),
-                                TextButton(
-                                  child: const Text('Delete'),
-                                  onPressed: () => Navigator.pop(context, true),
-                                ),
-                              ],
+                  );
+                }
+
+                final uploads = snapshot.data!.docs;
+
+                return ListView.builder(
+                  padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
+                  itemCount: uploads.length,
+                  itemBuilder: (context, index) {
+                    final imageData = uploads[index];
+
+                    return InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DetailedImageDisplayScreen(
+                              imageSize: imageData['imageSize'],
+                              location: imageData['location'],
+                              ownerId: imageData["userId"],
+                              ownerEmail: imageData['email'],
+                              imageUrl: imageData["imageUrl"],
+                              imageTitle: imageData["title"],
+                              imageDescription: imageData["description"],
+                              imagePrice: 2.0,
+                              isOwner: true,
                             ),
-                      );
+                          ),
+                        );
+                      },
+                      child: ListTile(
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.white,
+                          radius: 22.r,
+                          child: ClipOval(
+                            child: CachedNetworkImage(
+                              imageUrl: imageData["imageUrl"],
+                              width: 50.w,
+                              height: 50.h,
+                              placeholder: (context, url) => Shimmer.fromColors(
+                                baseColor: Colors.grey[300]!,
+                                highlightColor: Colors.grey[100]!,
+                                child: Container(
+                                  color: Colors.white,
+                                  height: 50.h,
+                                  width: 50.h,
+                                ),
+                              ),
+                              errorWidget: (context, url, error) =>
+                                  const Icon(Icons.error, color: Colors.red),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          imageData["title"],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          imageData["description"],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.black),
+                          onPressed: () async {
+                            final confirm = await showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Delete Image'),
+                                content: const Text(
+                                  'Are you sure you want to delete this image?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    child: const Text('Cancel'),
+                                    onPressed: () => Navigator.pop(context, false),
+                                  ),
+                                  TextButton(
+                                    child: const Text('Delete'),
+                                    onPressed: () => Navigator.pop(context, true),
+                                  ),
+                                ],
+                              ),
+                            );
 
-                      if (confirm) {
-                        try {
-                          await imageDeleteService.deleteUploadedImage(
-                            imageData["imageUrl"],
-                            imageData.id,
-                          );
+                            if (confirm) {
+                              try {
+                                await imageDeleteService.deleteUploadedImage(
+                                  imageData["imageUrl"],
+                                  imageData.id,
+                                );
 
-                          // Force rebuild to reflect deletion
-                          setState(() {});
+                                setState(() {});
 
-                          Toast.toastMessage(
-                            'Image deleted successfully',
-                            Colors.black,
-                          );
-                        } catch (e) {
-                          Toast.toastMessage(
-                            'Error deleting image: $e',
-                            Colors.red,
-                          );
-                        }
-                      }
-                    },
-                  ),
-                ),
-              );
-            },
-          );
-        },
+                                Toast.toastMessage(
+                                  'Image deleted successfully',
+                                  Colors.black,
+                                );
+                              } catch (e) {
+                                Toast.toastMessage(
+                                  'Error deleting image: $e',
+                                  Colors.red,
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ),
       ),
     );
   }
