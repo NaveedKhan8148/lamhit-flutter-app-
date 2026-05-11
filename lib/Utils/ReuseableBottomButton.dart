@@ -19,8 +19,9 @@ class ReuseableBottomButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isIPad = screenWidth >= 600;
+    final isTablet = screenWidth >= 600;
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final buttonWidth = min(screenWidth * 0.95, isTablet ? 560.0 : screenWidth * 0.85);
     
     return Material(
       color: Colors.transparent,
@@ -29,10 +30,10 @@ class ReuseableBottomButton extends StatelessWidget {
         onTap: enabled ? onTap : null,
         child: Container(
           height: 50.h, // Minimum 44pt for touch - using 50 for comfort
-          width: double.infinity,
+          width: buttonWidth,
           constraints: BoxConstraints(
             minHeight: 44.h,
-            maxWidth: isIPad ? 500 : double.infinity,
+            maxWidth: buttonWidth,
           ),
           decoration: BoxDecoration(
             color: enabled ? Colors.black : Colors.grey.shade500,
@@ -45,7 +46,7 @@ class ReuseableBottomButton extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
               style: GoogleFonts.poppins(
-                fontSize: isLandscape ? 13.sp : (isIPad ? 14.sp : 16.sp),
+                fontSize: isLandscape ? 14.sp : (isTablet ? 16.sp : 17.sp),
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),

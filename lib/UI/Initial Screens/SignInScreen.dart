@@ -45,7 +45,9 @@ class _SignInScreenState extends State<SignInScreen> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-    final isIPad = screenWidth >= 600;
+    final isTablet = screenWidth >= 600;
+    final contentMaxWidth = isTablet ? 600 : double.infinity;
+    final horizontalPadding = isTablet ? 24.w : 16.w;
 
     return isLoading
         ? const Scaffold(body: Center(child: CircularProgressIndicator()))
@@ -54,11 +56,11 @@ class _SignInScreenState extends State<SignInScreen> {
               child: Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxWidth: isIPad ? 560 : double.infinity,
+                    maxWidth: contentMaxWidth,
                   ),
                   child: SingleChildScrollView(
                     padding: EdgeInsets.symmetric(
-                      horizontal: 16.w,
+                      horizontal: horizontalPadding,
                       vertical: 20.h,
                     ),
                     child: Column(
@@ -67,7 +69,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       children: [
                         Image.asset(
                           "assets/images/lamhti logo with text.png",
-                          width: min(260.w, screenWidth * 0.55),
+                          width: min(320.w, contentMaxWidth * 0.65),
                           fit: BoxFit.contain,
                         ),
                         SizedBox(
@@ -112,7 +114,7 @@ class _SignInScreenState extends State<SignInScreen> {
                             TyperAnimatedText(
                               'Sign In / Register',
                               textStyle: TextStyle(
-                                fontSize: isLandscape ? 20.0.sp : 24.0.sp,
+                                  fontSize: isTablet ? 28.sp : (isLandscape ? 20.0.sp : 24.0.sp),
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black,
                               ),
@@ -133,12 +135,12 @@ class _SignInScreenState extends State<SignInScreen> {
                                 TextFormField(
                                   controller: _emailController,
                                   keyboardType: TextInputType.emailAddress,
-                                  style: TextStyle(fontSize: isIPad ? 13.sp : 14.sp),
+                                  style: TextStyle(fontSize: isTablet ? 16.sp : 14.sp),
                                   decoration: InputDecoration(
                                     labelText: 'Email',
                                     hintText: 'Enter your email',
                                     prefixIcon: Icon(Icons.email_outlined,
-                                        size: isIPad ? 18.sp : 20.sp),
+                                        size: isTablet ? 22.sp : 20.sp),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12.r),
                                     ),
@@ -164,18 +166,18 @@ class _SignInScreenState extends State<SignInScreen> {
                                 TextFormField(
                                   controller: _passwordController,
                                   obscureText: _obscurePassword,
-                                  style: TextStyle(fontSize: isIPad ? 13.sp : 14.sp),
+                                  style: TextStyle(fontSize: isTablet ? 16.sp : 14.sp),
                                   decoration: InputDecoration(
                                     labelText: 'Password',
                                     hintText: 'Enter your password',
                                     prefixIcon:
-                                        Icon(Icons.lock_outline, size: isIPad ? 18.sp : 20.sp),
+                                        Icon(Icons.lock_outline, size: isTablet ? 22.sp : 20.sp),
                                     suffixIcon: IconButton(
                                       icon: Icon(
                                         _obscurePassword
                                             ? Icons.visibility_off
                                             : Icons.visibility,
-                                        size: isIPad ? 18.sp : 20.sp,
+                                        size: isTablet ? 22.sp : 20.sp,
                                       ),
                                       onPressed: () {
                                         setState(() {
@@ -228,7 +230,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                           'Forgot Password?',
                                           style: TextStyle(
                                             color: Colors.blue,
-                                            fontSize: isIPad ? 13.sp : 14.sp,
+                                              fontSize: isTablet ? 16.sp : 14.sp,
                                           ),
                                         ),
                                       ),
@@ -287,7 +289,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                         child: Text(
                                           _isSignUpMode ? 'Sign Up' : 'Sign In',
                                           style: TextStyle(
-                                            fontSize: isIPad ? 14.sp : 16.sp,
+                                            fontSize: isTablet ? 18.sp : 16.sp,
                                             fontWeight: FontWeight.w600,
                                             color: Colors.white,
                                           ),
@@ -305,7 +307,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                           ? 'Already have an account?'
                                           : "Don't have an account?",
                                       style: TextStyle(
-                                        fontSize: isIPad ? 13.sp : 14.sp,
+                                        fontSize: isTablet ? 16.sp : 14.sp,
                                         color: Colors.grey[700],
                                       ),
                                     ),
@@ -320,7 +322,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                         child: Text(
                                           _isSignUpMode ? 'Sign In' : 'Sign Up',
                                           style: TextStyle(
-                                            fontSize: isIPad ? 13.sp : 14.sp,
+                                              fontSize: isTablet ? 16.sp : 14.sp,
                                             fontWeight: FontWeight.bold,
                                             color: Colors.blue,
                                           ),
@@ -456,7 +458,7 @@ class _SignInScreenState extends State<SignInScreen> {
                               'By continuing, you agree to our Terms & Privacy Policy',
                               textAlign: TextAlign.center,
                               style:
-                                  TextStyle(fontSize: isIPad ? 10.sp : 12.sp, color: Colors.grey),
+                                  TextStyle(fontSize: isTablet ? 12.sp : 12.sp, color: Colors.grey),
                             ),
                           ),
                         ),
@@ -485,8 +487,8 @@ class ReuseableContinueButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isIPad = screenWidth >= 600;
-    final buttonWidth = screenWidth > 500 ? 440.0 : screenWidth * 0.85;
+    final isTablet = screenWidth >= 600;
+    final buttonWidth = min(screenWidth * 0.95, isTablet ? 560.0 : screenWidth * 0.85);
     
     return InkWell(
       onTap: onTap,
@@ -505,8 +507,8 @@ class ReuseableContinueButton extends StatelessWidget {
             children: [
               Image(
                   image: AssetImage(imagePath),
-                  height: isIPad ? 28.h : 32.h,
-                  width: isIPad ? 28.w : 32.w),
+                  height: isTablet ? 28.h : 32.h,
+                  width: isTablet ? 28.w : 32.w),
               SizedBox(width: 20.w),
               Flexible(
                 child: Text(
@@ -514,7 +516,7 @@ class ReuseableContinueButton extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                   style: TextStyle(
-                    fontSize: isIPad ? 14.sp : 16.sp,
+                    fontSize: isTablet ? 16.sp : 16.sp,
                     fontWeight: FontWeight.w400,
                     color: Colors.white,
                   ),

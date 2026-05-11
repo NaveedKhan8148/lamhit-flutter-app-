@@ -134,6 +134,7 @@ class _DetailedImageDisplayScreenState
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isTablet = screenWidth >= 600;
 
     if (isLoadingSheet) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -154,7 +155,7 @@ class _DetailedImageDisplayScreenState
             SizedBox(
               height: isTapValue
                   ? screenHeight
-                  : screenHeight * 0.7,
+                  : screenHeight * (isLandscape ? 0.82 : 0.72),
               width: double.infinity,
               child: GestureDetector(
                 onTap: () => setState(() => isTapValue = true),
@@ -220,7 +221,7 @@ class _DetailedImageDisplayScreenState
                     physics: const BouncingScrollPhysics(),
                     child: Padding(
                       padding: EdgeInsets.symmetric(
-                          horizontal: 20.w, vertical: 15.h),
+                          horizontal: isTablet ? 28.w : 20.w, vertical: 15.h),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -243,7 +244,7 @@ class _DetailedImageDisplayScreenState
                               Text(
                                 widget.imageTitle,
                                 style: GoogleFonts.poppins(
-                                  fontSize: isLandscape ? 18.sp : 24.sp,
+                                  fontSize: isTablet ? 28.sp : (isLandscape ? 20.sp : 24.sp),
                                   fontWeight: FontWeight.w700,
                                   color: Colors.black87,
                                 ),
@@ -252,7 +253,7 @@ class _DetailedImageDisplayScreenState
                               Text(
                                 'Description : ${widget.imageDescription}',
                                 style: GoogleFonts.poppins(
-                                  fontSize: isLandscape ? 13.sp : 16.sp,
+                                  fontSize: isTablet ? 18.sp : (isLandscape ? 14.sp : 16.sp),
                                   fontWeight: FontWeight.w400,
                                   color: Colors.grey[800],
                                 ),
@@ -264,7 +265,7 @@ class _DetailedImageDisplayScreenState
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.poppins(
-                                    fontSize: isLandscape ? 13.sp : 16.sp,
+                                    fontSize: isTablet ? 18.sp : (isLandscape ? 14.sp : 16.sp),
                                     fontWeight: FontWeight.w400,
                                     color: Colors.grey[800],
                                   ),
@@ -277,7 +278,7 @@ class _DetailedImageDisplayScreenState
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.poppins(
-                                    fontSize: isLandscape ? 13.sp : 16.sp,
+                                    fontSize: isTablet ? 18.sp : (isLandscape ? 14.sp : 16.sp),
                                     fontWeight: FontWeight.w400,
                                     color: Colors.grey[800],
                                   ),
@@ -300,7 +301,7 @@ class _DetailedImageDisplayScreenState
                                           Text(
                                             'Loading price...',
                                             style: TextStyle(
-                                              fontSize: isLandscape ? 13.sp : 16.sp,
+                                              fontSize: isTablet ? 18.sp : (isLandscape ? 14.sp : 16.sp),
                                               color: Colors.grey,
                                             ),
                                           ),
@@ -311,7 +312,7 @@ class _DetailedImageDisplayScreenState
                                             ? "Price: ${iapPrice ?? 'Unavailable'}"
                                             : "Price: \$${widget.imagePrice.toStringAsFixed(2)}",
                                         style: TextStyle(
-                                          fontSize: isLandscape ? 15.sp : 18.sp,
+                                          fontSize: isTablet ? 20.sp : (isLandscape ? 15.sp : 18.sp),
                                           fontWeight: FontWeight.w500,
                                           color: Colors.black,
                                         ),
@@ -447,7 +448,9 @@ class _DetailedImageDisplayScreenState
                   ),
                 ),
               ),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );
