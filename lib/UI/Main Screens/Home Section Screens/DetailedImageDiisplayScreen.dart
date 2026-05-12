@@ -83,8 +83,9 @@ class _DetailedImageDisplayScreenState
   }
 
   void _startIapPricePolling() {
-    final price = _platformPaymentService
-        .getProductPrice(InAppPurchaseService.imageDownloadProductId);
+    final price = _platformPaymentService.getProductPrice(
+      InAppPurchaseService.imageDownloadProductId,
+    );
     if (price != null) return;
 
     setState(() => _iapLoading = true);
@@ -92,8 +93,9 @@ class _DetailedImageDisplayScreenState
     int attempts = 0;
     _iapRetryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       attempts++;
-      final p = _platformPaymentService
-          .getProductPrice(InAppPurchaseService.imageDownloadProductId);
+      final p = _platformPaymentService.getProductPrice(
+        InAppPurchaseService.imageDownloadProductId,
+      );
       if (p != null || attempts >= 15) {
         timer.cancel();
         if (mounted) setState(() => _iapLoading = false);
@@ -105,8 +107,9 @@ class _DetailedImageDisplayScreenState
     try {
       setState(() => isLoadingSheet = true);
 
-      final accountId =
-          await _imageUploadService.getAccountIdFromUpload(widget.imageId!);
+      final accountId = await _imageUploadService.getAccountIdFromUpload(
+        widget.imageId!,
+      );
       debugPrint("SELLER Account ID: $accountId");
 
       final paymentSuccessful = await _platformPaymentService.processPayment(
@@ -128,12 +131,14 @@ class _DetailedImageDisplayScreenState
 
   @override
   Widget build(BuildContext context) {
-    final iapPrice = _platformPaymentService
-        .getProductPrice(InAppPurchaseService.imageDownloadProductId);
+    final iapPrice = _platformPaymentService.getProductPrice(
+      InAppPurchaseService.imageDownloadProductId,
+    );
     final isIos = Platform.isIOS;
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
     final isTablet = screenWidth >= 600;
 
     if (isLoadingSheet) {
@@ -153,21 +158,24 @@ class _DetailedImageDisplayScreenState
         body: Stack(
           children: [
             SizedBox(
-              height: isTapValue
-                  ? screenHeight
-                  : screenHeight * (isLandscape ? 0.82 : 0.72),
+              height:
+                  isTapValue
+                      ? screenHeight
+                      : screenHeight * (isLandscape ? 0.82 : 0.72),
               width: double.infinity,
               child: GestureDetector(
                 onTap: () => setState(() => isTapValue = true),
                 child: CachedNetworkImage(
                   imageUrl: widget.imageUrl,
-                  placeholder: (context, url) => Shimmer.fromColors(
-                    baseColor: Colors.grey[300]!,
-                    highlightColor: Colors.grey[100]!,
-                    child: Container(color: Colors.white),
-                  ),
-                  errorWidget: (context, url, error) =>
-                      const Icon(Icons.error, color: Colors.red),
+                  placeholder:
+                      (context, url) => Shimmer.fromColors(
+                        baseColor: Colors.grey[300]!,
+                        highlightColor: Colors.grey[100]!,
+                        child: Container(color: Colors.white),
+                      ),
+                  errorWidget:
+                      (context, url, error) =>
+                          const Icon(Icons.error, color: Colors.red),
                   fit: BoxFit.cover,
                 ),
               ),
@@ -197,9 +205,8 @@ class _DetailedImageDisplayScreenState
                 alignment: Alignment.bottomCenter,
                 child: Container(
                   constraints: BoxConstraints(
-                    maxHeight: isLandscape 
-                        ? screenHeight * 0.75 
-                        : screenHeight * 0.55,
+                    maxHeight:
+                        isLandscape ? screenHeight * 0.75 : screenHeight * 0.55,
                     minHeight: screenHeight * 0.35,
                   ),
                   width: double.infinity,
@@ -221,7 +228,9 @@ class _DetailedImageDisplayScreenState
                     physics: const BouncingScrollPhysics(),
                     child: Padding(
                       padding: EdgeInsets.symmetric(
-                          horizontal: isTablet ? 28.w : 20.w, vertical: 15.h),
+                        horizontal: isTablet ? 28.w : 20.w,
+                        vertical: 15.h,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -244,7 +253,10 @@ class _DetailedImageDisplayScreenState
                               Text(
                                 widget.imageTitle,
                                 style: GoogleFonts.poppins(
-                                  fontSize: isTablet ? 28.sp : (isLandscape ? 20.sp : 24.sp),
+                                  fontSize:
+                                      isTablet
+                                          ? 28.sp
+                                          : (isLandscape ? 20.sp : 24.sp),
                                   fontWeight: FontWeight.w700,
                                   color: Colors.black87,
                                 ),
@@ -253,7 +265,10 @@ class _DetailedImageDisplayScreenState
                               Text(
                                 'Description : ${widget.imageDescription}',
                                 style: GoogleFonts.poppins(
-                                  fontSize: isTablet ? 18.sp : (isLandscape ? 14.sp : 16.sp),
+                                  fontSize:
+                                      isTablet
+                                          ? 18.sp
+                                          : (isLandscape ? 14.sp : 16.sp),
                                   fontWeight: FontWeight.w400,
                                   color: Colors.grey[800],
                                 ),
@@ -265,7 +280,10 @@ class _DetailedImageDisplayScreenState
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.poppins(
-                                    fontSize: isTablet ? 18.sp : (isLandscape ? 14.sp : 16.sp),
+                                    fontSize:
+                                        isTablet
+                                            ? 18.sp
+                                            : (isLandscape ? 14.sp : 16.sp),
                                     fontWeight: FontWeight.w400,
                                     color: Colors.grey[800],
                                   ),
@@ -278,7 +296,10 @@ class _DetailedImageDisplayScreenState
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.poppins(
-                                    fontSize: isTablet ? 18.sp : (isLandscape ? 14.sp : 16.sp),
+                                    fontSize:
+                                        isTablet
+                                            ? 18.sp
+                                            : (isLandscape ? 14.sp : 16.sp),
                                     fontWeight: FontWeight.w400,
                                     color: Colors.grey[800],
                                   ),
@@ -289,34 +310,43 @@ class _DetailedImageDisplayScreenState
                               if (!widget.isOwner)
                                 _iapLoading && isIos
                                     ? Row(
-                                        children: [
-                                          SizedBox(
-                                            height: 16.h,
-                                            width: 16.w,
-                                            child:
-                                                const CircularProgressIndicator(
-                                                    strokeWidth: 2),
-                                          ),
-                                          SizedBox(width: 8.w),
-                                          Text(
-                                            'Loading price...',
-                                            style: TextStyle(
-                                              fontSize: isTablet ? 18.sp : (isLandscape ? 14.sp : 16.sp),
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                    : Text(
-                                        isIos
-                                            ? "Price: ${iapPrice ?? 'Unavailable'}"
-                                            : "Price: \$${widget.imagePrice.toStringAsFixed(2)}",
-                                        style: TextStyle(
-                                          fontSize: isTablet ? 20.sp : (isLandscape ? 15.sp : 18.sp),
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.black,
+                                      children: [
+                                        SizedBox(
+                                          height: 16.h,
+                                          width: 16.w,
+                                          child:
+                                              const CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
                                         ),
+                                        SizedBox(width: 8.w),
+                                        Text(
+                                          'Loading price...',
+                                          style: TextStyle(
+                                            fontSize:
+                                                isTablet
+                                                    ? 18.sp
+                                                    : (isLandscape
+                                                        ? 14.sp
+                                                        : 16.sp),
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                    : Text(
+                                      isIos
+                                          ? "Price: ${iapPrice ?? 'Unavailable'}"
+                                          : "Price: \$${widget.imagePrice.toStringAsFixed(2)}",
+                                      style: TextStyle(
+                                        fontSize:
+                                            isTablet
+                                                ? 20.sp
+                                                : (isLandscape ? 15.sp : 18.sp),
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.black,
                                       ),
+                                    ),
                               SizedBox(height: 20.h),
                             ],
                           ),
@@ -325,21 +355,25 @@ class _DetailedImageDisplayScreenState
                           if (!widget.isOwner)
                             Padding(
                               padding: EdgeInsets.only(
-                                bottom: MediaQuery.of(context).padding.bottom + 10.h,
+                                bottom:
+                                    MediaQuery.of(context).padding.bottom +
+                                    10.h,
                               ),
                               child: SizedBox(
                                 width: double.infinity,
                                 child: ReuseableBottomButton(
-                                  enabled: isIos
-                                      ? (iapPrice != null && !_iapLoading)
-                                      : true,
-                                  buttonText: isIos
-                                      ? (_iapLoading
-                                          ? "Loading price..."
-                                          : iapPrice != null
+                                  enabled:
+                                      isIos
+                                          ? (iapPrice != null && !_iapLoading)
+                                          : true,
+                                  buttonText:
+                                      isIos
+                                          ? (_iapLoading
+                                              ? "Loading price..."
+                                              : iapPrice != null
                                               ? "Buy Now for $iapPrice"
                                               : "Unavailable")
-                                      : "Buy Now for \$${widget.imagePrice}",
+                                          : "Buy Now for \$${widget.imagePrice}",
                                   onTap: () async {
                                     if (isIos && iapPrice == null) {
                                       Toast.toastMessage(
@@ -354,34 +388,45 @@ class _DetailedImageDisplayScreenState
                                       // log('🟢 Buy tapped. priceInCents=$priceInCents, imageId=${widget.imageId}');
 
                                       final paid = await makePaymentAndBuyImage(
-                                          priceInCents);
+                                        priceInCents,
+                                      );
                                       log('💳 Payment result: $paid');
                                       if (!paid) {
                                         if (context.mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
                                             const SnackBar(
-                                                content: Text(
-                                                    'Payment was not completed.')),
+                                              content: Text(
+                                                'Payment was not completed.',
+                                              ),
+                                            ),
                                           );
                                         }
                                         return;
                                       }
 
-                                      final txId = _platformPaymentService
-                                          .getLastIapTransactionId();
+                                      final txId =
+                                          _platformPaymentService
+                                              .getLastIapTransactionId();
                                       await ImageUploadService()
                                           .markItemSoldAfterPayment(
-                                        documentId: widget.imageId!,
-                                        paymentMethod: 'iap',
-                                        transactionId: txId,
-                                        productId: InAppPurchaseService
-                                            .imageDownloadProductId,
+                                            documentId: widget.imageId!,
+                                            paymentMethod: 'iap',
+                                            transactionId: txId,
+                                            productId:
+                                                InAppPurchaseService
+                                                    .imageDownloadProductId,
+                                          );
+                                      log(
+                                        '✅ Marked item sold: ${widget.imageId}',
                                       );
-                                      log('✅ Marked item sold: ${widget.imageId}');
 
                                       final buyerEmail =
-                                          FirebaseAuth.instance.currentUser?.email;
+                                          FirebaseAuth
+                                              .instance
+                                              .currentUser
+                                              ?.email;
 
                                       if (buyerEmail != null &&
                                           buyerEmail.isNotEmpty &&
@@ -393,15 +438,21 @@ class _DetailedImageDisplayScreenState
                                               'Hello,\nYou purchased "${widget.imageTitle}" '
                                               'from Lamhti at a cost of \$${widget.imagePrice}',
                                         );
-                                        log('📧 Buyer email -> $buyerEmail | sent=$buyerOk');
+                                        log(
+                                          '📧 Buyer email -> $buyerEmail | sent=$buyerOk',
+                                        );
                                       } else {
-                                        log('⚠️ Buyer email skipped — private relay or null: $buyerEmail');
+                                        log(
+                                          '⚠️ Buyer email skipped — private relay or null: $buyerEmail',
+                                        );
                                       }
 
                                       final sellerEmail = widget.ownerEmail;
                                       final buyerLabel =
                                           (buyerEmail != null &&
-                                                  !_isPrivateRelayEmail(buyerEmail))
+                                                  !_isPrivateRelayEmail(
+                                                    buyerEmail,
+                                                  ))
                                               ? buyerEmail
                                               : 'Lamhti buyer';
 
@@ -409,7 +460,8 @@ class _DetailedImageDisplayScreenState
                                           !_isPrivateRelayEmail(sellerEmail)) {
                                         final sellerOk = await MailSender.send(
                                           toEmail: sellerEmail,
-                                          subject: 'Your item was sold — Lamhti',
+                                          subject:
+                                              'Your item was sold — Lamhti',
                                           textBody:
                                               'Hello,\nCongratulations! Your product '
                                               '"${widget.imageTitle}" has been sold for '
@@ -419,21 +471,33 @@ class _DetailedImageDisplayScreenState
                                               'We\'ll handle the next steps as per your settings.\n\n'
                                               '~TEAM LAMHTI',
                                         );
-                                        log('📧 Seller email -> $sellerEmail | sent=$sellerOk');
+                                        log(
+                                          '📧 Seller email -> $sellerEmail | sent=$sellerOk',
+                                        );
                                       } else {
-                                        log('⚠️ Seller email skipped — private relay or empty: $sellerEmail');
+                                        log(
+                                          '⚠️ Seller email skipped — private relay or empty: $sellerEmail',
+                                        );
                                       }
 
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           const SnackBar(
-                                              content: Text('Purchase complete!')),
+                                            content: Text('Purchase complete!'),
+                                          ),
                                         );
                                       }
                                     } catch (e, st) {
-                                      log('❌ Buy flow error: $e', stackTrace: st);
+                                      log(
+                                        '❌ Buy flow error: $e',
+                                        stackTrace: st,
+                                      );
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           SnackBar(content: Text('Error: $e')),
                                         );
                                       }
@@ -448,9 +512,7 @@ class _DetailedImageDisplayScreenState
                   ),
                 ),
               ),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
     );
