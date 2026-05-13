@@ -43,9 +43,18 @@
 	<array>
 		<string>google</string>
 		<string>com.google</string>
+		<string>https</string>
+		<string>http</string>
 	</array>
+
+	<!-- ── iPhone only — removed iPad (2) from device family ── -->
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer>
+	</array>
+
 	<key>NSCameraUsageDescription</key>
 	<string>This app uses the camera to scan cards and enhance your experience.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
@@ -79,18 +88,11 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+
+	<!-- ── Portrait only on iPhone — removed landscape and iPad orientations ── -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 </dict>
 </plist>
